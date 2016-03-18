@@ -5,6 +5,8 @@
 #
 
 # ------------------------------------------------------------------------------
+CFG     = ".config"
+# ------------------------------------------------------------------------------
 db_help() {
   cat <<EOF
 
@@ -69,6 +71,7 @@ db_run_sql_begin() {
   cat > $file <<EOF
 /* ------------------------------------------------------------------------- */
 \qecho '-- _build.sql / BEGIN --'
+\cd /var/log/supervisor/build
 
 BEGIN;
 \set ON_ERROR_STOP 1
@@ -343,7 +346,13 @@ EOF
   pushd $BLD > /dev/null
 
   echo "Running build.sql..."
-  dbd psql -X -P footer=off -f build.sql 3>&1 1>$LOGFILE 2>&3 | log $TEST_TTL
+  
+  #dbd psql -X -P footer=off -f build.sql 3>&1 1>$LOGFILE 2>&3 | log $TEST_TTL     --prev. ver.
+
+  cp -rf ../* ../../../consup/var/log/postgres_common/  
+  docker exec -i consup_postgres_common chown -R postgres:postgres /var/log/supervisor/build  
+  $CFG && docker exec -i consup_postgres_common gosu postgres psql -X -P footer=off $DB_NAME -f /var/log/supervisor/build/build.sql
+  
   RETVAL=$?
   popd > /dev/null
   if [[ $RETVAL -eq 0 ]] ; then
