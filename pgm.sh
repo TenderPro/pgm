@@ -5,7 +5,8 @@
 #
 
 # ------------------------------------------------------------------------------
-CFG     = ".config"
+CFG=".config"
+ROOT="/var/log/supervisor"
 # ------------------------------------------------------------------------------
 db_help() {
   cat <<EOF
@@ -42,7 +43,7 @@ db_init() {
 CONN="dbname=pgm01;user=op;host=localhost;password=op"
 
 # Project root
-ROOT=\$PWD
+ROOT=/var/log/supervisor
 
 # Directory of Postgresql binaries (psql, pg_dump, pg_restore, createdb, createlang)
 # Empty if they are in search path
@@ -71,7 +72,7 @@ db_run_sql_begin() {
   cat > $file <<EOF
 /* ------------------------------------------------------------------------- */
 \qecho '-- _build.sql / BEGIN --'
-\cd /var/log/supervisor/build
+\cd $ROOT/var/build
 
 BEGIN;
 \set ON_ERROR_STOP 1
@@ -162,6 +163,7 @@ log() {
 
 # ------------------------------------------------------------------------------
 db_run() {
+
   local run_op=$1 ; shift
   local file_mask=$1 ; shift
   local pkg=$@
@@ -347,12 +349,8 @@ EOF
 
   echo "Running build.sql..."
   
-  #dbd psql -X -P footer=off -f build.sql 3>&1 1>$LOGFILE 2>&3 | log $TEST_TTL     --prev. ver.
+  dbd psql -X -P footer=off -f build.sql 3>&1 1>$LOGFILE 2>&3 | log $TEST_TTL
 
-  cp -rf ../* ../../../consup/var/log/postgres_common/  
-  docker exec -i consup_postgres_common chown -R postgres:postgres /var/log/supervisor/build  
-  $CFG && docker exec -i consup_postgres_common gosu postgres psql -X -P footer=off $DB_NAME -f /var/log/supervisor/build/build.sql
-  
   RETVAL=$?
   popd > /dev/null
   if [[ $RETVAL -eq 0 ]] ; then
@@ -480,6 +478,8 @@ cmd=$1
 shift
 pkg=$@
 
+cd $ROOT
+
 [[ "$cmd" == "init" ]] && db_init
 . .config
 
@@ -516,15 +516,6 @@ case "$cmd" in
     db_run drop "00_*.sql 02_*.sql" "$pkg"
     ;;
   erase)
-    echo "!!!WARNING!!! Erase will drop persistent data"
-    read -t 5 -n 1 -p "Continue? [N]"
-    [[ "$REPLY" != ${REPLY%[yY]} ]] || { echo "No confirm" ; exit ; }
-    db_run erase "0?_*.sql" "$pkg"
-    ;;
-  erase_force)
-    echo "!!!WARNING!!! Erase will drop persistent data"
-    read -t 5 -n 1 -p "Continue? [Y]"
-    [[ "$REPLY" != ${REPLY%[nN]} ]] && { echo "No confirm" ; exit ; }
     db_run erase "0?_*.sql" "$pkg"
     ;;
   make)
