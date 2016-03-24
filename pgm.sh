@@ -453,9 +453,9 @@ if [ -z "$DB_NAME" ]; then
 	echo 'DB_NAME not configured, loading .config'
 	[[ "$cmd" == "init" ]] && db_init
 	. .config	
-else
-	CONN="dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
 fi
+
+CONN="dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
 
 [[ "$CONN" ]] || { echo "Fatal: No DB connect info"; exit 1; }
 [[ "$ROOT" ]] || ROOT=$PWD
