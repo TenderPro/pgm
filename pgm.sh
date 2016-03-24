@@ -1,13 +1,10 @@
 #
-#    Copyright (c) 2010, 2012 Tender.Pro http://tender.pro.
+#    Copyright (c) 2010, 2016 Tender.Pro http://tender.pro.
 #
 # pgm.sh - Postgresql schema control script
 #
+# ------------------------------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-CFG=".config"
-ROOT="/var/log/supervisor"
-# ------------------------------------------------------------------------------
 db_help() {
   cat <<EOF
 
@@ -15,7 +12,6 @@ db_help() {
     $0 COMMAND [PKG]
 
   Where COMMAND is one from
-    init - create .config file
     create - create DB objects
     make - compile code
     drop - drop DB objects
@@ -30,34 +26,6 @@ db_help() {
 
 EOF
 }
-
-# ------------------------------------------------------------------------------
-db_init() {
-  [ -f .config ] && return
-  cat > .config <<EOF
-#
-# PGM config file
-#
-
-# DBI connect
-CONN="dbname=pgm01;user=op;host=localhost;password=op"
-
-# Project root
-ROOT=/var/log/supervisor
-
-# Directory of Postgresql binaries (psql, pg_dump, pg_restore, createdb, createlang)
-# Empty if they are in search path
-# Command to check: dirname "$(whereis -b psql)"
-PG_BINDIR=""
-
-# Do not remove sql preprocess files (var/build)
-KEEP_SQL="1"
-
-EOF
-  echo ".config created"
-  exit 1
-}
-
 # ------------------------------------------------------------------------------
 db_show_logfile() {
   cat <<EOF
@@ -119,7 +87,7 @@ db_run_test_end() {
   local file=$1
   cat >> $file <<EOF
 \o
-truncate $PGM_SCHEMA.compile_errors;
+delete from $PGM_SCHEMA.compile_errors;
 \copy $PGM_SCHEMA.compile_errors(data) from errors.diff
 \! cat errors.diff
 select $PGM_SCHEMA.compile_errors_chk();
@@ -478,10 +446,16 @@ cmd=$1
 shift
 pkg=$@
 
-cd $ROOT
+[[ "$PWD" == "/" ]] && ROOT="/var/log/supervisor"
 
-[[ "$cmd" == "init" ]] && db_init
-. .config
+if [ -z "$DB_NAME" ]; then
+	cd $ROOT
+	echo 'DB_NAME not configured, loading .config'
+	[[ "$cmd" == "init" ]] && db_init
+	. .config	
+else
+	CONN="dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password=$DB_NAME"
+fi
 
 [[ "$CONN" ]] || { echo "Fatal: No DB connect info"; exit 1; }
 [[ "$ROOT" ]] || ROOT=$PWD
