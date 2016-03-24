@@ -454,7 +454,7 @@ if [ -z "$DB_NAME" ]; then
 	[[ "$cmd" == "init" ]] && db_init
 	. .config	
 else
-	CONN="dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password=$DB_NAME"
+	CONN="dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
 fi
 
 [[ "$CONN" ]] || { echo "Fatal: No DB connect info"; exit 1; }
