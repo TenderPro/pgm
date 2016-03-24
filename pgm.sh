@@ -122,6 +122,8 @@ file_protected_csum() {
   local schema=$2
   local file=$3
   local sql="SELECT csum FROM $PGM_STORE.pkg_script_protected WHERE pkg = '$pkg' AND schema = '$schema' AND code = '$file'"
+  #PGPASSWORD=$DB_NAME ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
+
   dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null | while read result ; do
     echo $result
   done
@@ -431,12 +433,13 @@ dbd() {
 }
 
 do_db() {
+
   dbarg=$1 ; shift
   cmd=$1   ; shift
   h=$PG_HOST
   d=$DB_NAME
   u=$DB_NAME
-
+  
   if [[ "$dbarg" == "last" ]] ; then
     last=$d ; pre=""
   else
@@ -445,7 +448,7 @@ do_db() {
   arr=$@
   echo ${#arr[@]} >> $ROOT/var/log.sql
   echo $cmd -U $u -h $h $pre $@ $last >> $ROOT/var/log.sql
-  [[ "$DO_SQL" ]] && PGPASSWORD=$DB_NAME ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
+  [[ "$DO_SQL" ]] && PGPASSWORD=$DB_PASS ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
 }
 
 debug() {
