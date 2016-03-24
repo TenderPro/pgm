@@ -12,6 +12,7 @@ db_help() {
     $0 COMMAND [PKG]
 
   Where COMMAND is one from
+    init - create .config file
     create - create DB objects
     make - compile code
     drop - drop DB objects
@@ -25,6 +26,27 @@ db_help() {
     PKG  - dirname(s) from sql. Default: "ws"
 
 EOF
+}
+# ------------------------------------------------------------------------------
+db_init() {
+  [ -f .config ] && return
+  cat > .config <<EOF
+#
+# PGM config file
+#
+# DBI connect
+CONN="dbname=pgm01;user=op;host=localhost;password=op"
+# Project root
+ROOT=\$PWD
+# Directory of Postgresql binaries (psql, pg_dump, pg_restore, createdb, createlang)
+# Empty if they are in search path
+# Command to check: dirname "$(whereis -b psql)"
+PG_BINDIR=""
+# Do not remove sql preprocess files (var/build)
+KEEP_SQL="1"
+EOF
+  echo ".config created"
+  exit 1
 }
 # ------------------------------------------------------------------------------
 db_show_logfile() {
@@ -411,10 +433,10 @@ dbd() {
 do_db() {
   dbarg=$1 ; shift
   cmd=$1   ; shift
-  h0=${CONN#*host=}     ; h=${h0%%;*}
-  d0=${CONN#*dbname=}   ; d=${d0%%;*}
-  u0=${CONN#*user=}     ; u=${u0%%;*}
-  p0=${CONN#*password=} ; p=${p0%%;*}
+  h=$PG_HOST
+  d=$DB_NAME
+  u=$DB_NAME
+
   if [[ "$dbarg" == "last" ]] ; then
     last=$d ; pre=""
   else
@@ -423,7 +445,7 @@ do_db() {
   arr=$@
   echo ${#arr[@]} >> $ROOT/var/log.sql
   echo $cmd -U $u -h $h $pre $@ $last >> $ROOT/var/log.sql
-  [[ "$DO_SQL" ]] && PGPASSWORD=$p0 ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
+  [[ "$DO_SQL" ]] && PGPASSWORD=$DB_NAME ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
 }
 
 debug() {
@@ -455,9 +477,6 @@ if [ -z "$DB_NAME" ]; then
 	. .config	
 fi
 
-CONN="dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
-
-[[ "$CONN" ]] || { echo "Fatal: No DB connect info"; exit 1; }
 [[ "$ROOT" ]] || ROOT=$PWD
 DO_SQL=1
 BLD=$ROOT/var/build
@@ -476,7 +495,7 @@ PGM_STORE="wsd"
 [[ "$cmd" == "anno" ]] || cat <<EOF
   ---------------------------------------------------------
   PgM. Postgresql Database Manager
-  Connect:  $CONN
+  Connect:  "dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
   ---------------------------------------------------------
 EOF
 
