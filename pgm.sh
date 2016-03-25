@@ -1,10 +1,10 @@
 #
-#    Copyright (c) 2010, 2012 Tender.Pro http://tender.pro.
+#    Copyright (c) 2010, 2016 Tender.Pro http://tender.pro.
 #
 # pgm.sh - Postgresql schema control script
 #
-
 # ------------------------------------------------------------------------------
+
 db_help() {
   cat <<EOF
 
@@ -27,7 +27,6 @@ db_help() {
 
 EOF
 }
-
 # ------------------------------------------------------------------------------
 db_init() {
   [ -f .config ] && return
@@ -35,26 +34,20 @@ db_init() {
 #
 # PGM config file
 #
-
 # DBI connect
 CONN="dbname=pgm01;user=op;host=localhost;password=op"
-
 # Project root
 ROOT=\$PWD
-
 # Directory of Postgresql binaries (psql, pg_dump, pg_restore, createdb, createlang)
 # Empty if they are in search path
 # Command to check: dirname "$(whereis -b psql)"
 PG_BINDIR=""
-
 # Do not remove sql preprocess files (var/build)
 KEEP_SQL="1"
-
 EOF
   echo ".config created"
   exit 1
 }
-
 # ------------------------------------------------------------------------------
 db_show_logfile() {
   cat <<EOF
@@ -69,6 +62,7 @@ db_run_sql_begin() {
   cat > $file <<EOF
 /* ------------------------------------------------------------------------- */
 \qecho '-- _build.sql / BEGIN --'
+\cd $ROOT/var/build
 
 BEGIN;
 \set ON_ERROR_STOP 1
@@ -115,7 +109,7 @@ db_run_test_end() {
   local file=$1
   cat >> $file <<EOF
 \o
-truncate $PGM_SCHEMA.compile_errors;
+delete from $PGM_SCHEMA.compile_errors;
 \copy $PGM_SCHEMA.compile_errors(data) from errors.diff
 \! cat errors.diff
 select $PGM_SCHEMA.compile_errors_chk();
@@ -128,6 +122,8 @@ file_protected_csum() {
   local schema=$2
   local file=$3
   local sql="SELECT csum FROM $PGM_STORE.pkg_script_protected WHERE pkg = '$pkg' AND schema = '$schema' AND code = '$file'"
+  #PGPASSWORD=$DB_NAME ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
+
   dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null | while read result ; do
     echo $result
   done
@@ -159,6 +155,7 @@ log() {
 
 # ------------------------------------------------------------------------------
 db_run() {
+
   local run_op=$1 ; shift
   local file_mask=$1 ; shift
   local pkg=$@
@@ -343,7 +340,9 @@ EOF
   pushd $BLD > /dev/null
 
   echo "Running build.sql..."
+  
   dbd psql -X -P footer=off -f build.sql 3>&1 1>$LOGFILE 2>&3 | log $TEST_TTL
+
   RETVAL=$?
   popd > /dev/null
   if [[ $RETVAL -eq 0 ]] ; then
@@ -434,12 +433,13 @@ dbd() {
 }
 
 do_db() {
+
   dbarg=$1 ; shift
   cmd=$1   ; shift
-  h0=${CONN#*host=}     ; h=${h0%%;*}
-  d0=${CONN#*dbname=}   ; d=${d0%%;*}
-  u0=${CONN#*user=}     ; u=${u0%%;*}
-  p0=${CONN#*password=} ; p=${p0%%;*}
+  h=$PG_HOST
+  d=$DB_NAME
+  u=$DB_NAME
+  
   if [[ "$dbarg" == "last" ]] ; then
     last=$d ; pre=""
   else
@@ -448,7 +448,7 @@ do_db() {
   arr=$@
   echo ${#arr[@]} >> $ROOT/var/log.sql
   echo $cmd -U $u -h $h $pre $@ $last >> $ROOT/var/log.sql
-  [[ "$DO_SQL" ]] && PGPASSWORD=$p0 ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
+  [[ "$DO_SQL" ]] && PGPASSWORD=$DB_PASS ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
 }
 
 debug() {
@@ -471,10 +471,15 @@ cmd=$1
 shift
 pkg=$@
 
-[[ "$cmd" == "init" ]] && db_init
-. .config
+[[ "$PWD" == "/" ]] && ROOT="/var/log/supervisor"
 
-[[ "$CONN" ]] || { echo "Fatal: No DB connect info"; exit 1; }
+if [ -z "$DB_NAME" ]; then
+	cd $ROOT
+	echo 'DB_NAME not configured, loading .config'
+	[[ "$cmd" == "init" ]] && db_init
+	. .config	
+fi
+
 [[ "$ROOT" ]] || ROOT=$PWD
 DO_SQL=1
 BLD=$ROOT/var/build
@@ -493,7 +498,7 @@ PGM_STORE="wsd"
 [[ "$cmd" == "anno" ]] || cat <<EOF
   ---------------------------------------------------------
   PgM. Postgresql Database Manager
-  Connect:  $CONN
+  Connect:  "dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
   ---------------------------------------------------------
 EOF
 
@@ -507,15 +512,6 @@ case "$cmd" in
     db_run drop "00_*.sql 02_*.sql" "$pkg"
     ;;
   erase)
-    echo "!!!WARNING!!! Erase will drop persistent data"
-    read -t 5 -n 1 -p "Continue? [N]"
-    [[ "$REPLY" != ${REPLY%[yY]} ]] || { echo "No confirm" ; exit ; }
-    db_run erase "0?_*.sql" "$pkg"
-    ;;
-  erase_force)
-    echo "!!!WARNING!!! Erase will drop persistent data"
-    read -t 5 -n 1 -p "Continue? [Y]"
-    [[ "$REPLY" != ${REPLY%[nN]} ]] && { echo "No confirm" ; exit ; }
     db_run erase "0?_*.sql" "$pkg"
     ;;
   make)
