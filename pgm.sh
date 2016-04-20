@@ -258,6 +258,10 @@ EOF
           # awk "{gsub(/(\/\* .+ \/ [0-9]+ \*\/ )?\\\$_\\\$( \/\* .+ \/ [0-9]+ \*\/)?/, \"/* $pn:$sn:$n / \" FNR \" */ \$_\$ /* $pn:$sn:$n / \" FNR \" */ \")}; 1" $f > $BLD/$bd/$n
         fi
         # настройка search_path для create и make
+        if [[ $n =~ .+_wsd_[0-9][0-9][0-9].sql ]]; then
+            sn=$PGM_STORE
+        fi
+        
         if [[ ! "$search_set" ]] && [[ "$n" > "12_00" ]]; then
           echo "DO \$_\$ BEGIN IF (SELECT count(1) FROM pg_namespace WHERE nspname = '$sn') > 0 THEN SET search_path = $sn, $PGM_SCHEMA, public; ELSE SET search_path = $PGM_SCHEMA, public; END IF; END; \$_\$;" >> $BLD/build.sql
           search_set=1
@@ -288,7 +292,7 @@ EOF
         if [[ ! "$skip_file" ]]; then
           echo "\\set FILE $n" >> $BLD/build.sql
           echo "\i $bd/$n" >> $BLD/build.sql
-          [[ "$db_csum" ]] && echo "INSERT INTO $PGM_STORE.pkg_script_protected (pkg, schema, code, csum) VALUES ('$pn', '$sn', '$n', '$db_csum');" >> $BLD/build.sql 
+          [[ "$db_csum" ]] && echo "INSERT INTO $PGM_STORE.pkg_script_protected (pkg, schema, code, csum) VALUES ('$pn', '$sn', '$n', '$db_csum');" >> $BLD/build.sql
         else
           echo "\\qecho '----- SKIPPED PROTECTED FILE  -----'" >> $BLD/build.sql
           [[ "$db_csum" != "$csum" ]] && echo "\\qecho '!!!WARNING!!! db csum $db_csum <> file csum $csum'" >> $BLD/build.sql
