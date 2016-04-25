@@ -109,7 +109,7 @@ $_$
       WHERE is_active = NOT a_is_on
         AND CASE WHEN a_is_on THEN
           rel NOT IN (SELECT rel FROM wsd.pkg_fkey_required_by WHERE required_by NOT IN (SELECT code FROM ws.pkg))
-            AND EXISTS (SELECT 1 FROM ws.pkg WHERE code = pkg)
+            AND EXISTS (SELECT 1 FROM ws.pkg WHERE code = pkg) and EXISTS (SELECT 1 FROM ws.pkg where schemas @> array[pkg_fkey_protected.schema]::name[])
           ELSE
           (pkg = a_pkg AND schema IS NOT DISTINCT FROM a_schema)
           OR rel IN (SELECT rel FROM wsd.pkg_fkey_required_by WHERE required_by = a_pkg)
@@ -142,7 +142,7 @@ $_$
       WHERE is_active = NOT a_is_on
         AND CASE WHEN a_is_on THEN
           rel NOT IN (SELECT rel FROM wsd.pkg_fkey_required_by WHERE required_by NOT IN (SELECT code FROM ws.pkg))
-            AND EXISTS (SELECT 1 FROM ws.pkg WHERE code = pkg)
+            AND EXISTS (SELECT 1 FROM ws.pkg WHERE code = pkg) and EXISTS (SELECT 1 FROM ws.pkg where schemas @> array[pkg_fkey_protected.schema]::name[])
           ELSE
           (pkg = a_pkg AND schema IS NOT DISTINCT FROM a_schema)
           OR rel IN (SELECT rel FROM wsd.pkg_fkey_required_by WHERE required_by = a_pkg)

@@ -257,10 +257,6 @@ EOF
           # вариант с удалением прошлых комментариев
           # awk "{gsub(/(\/\* .+ \/ [0-9]+ \*\/ )?\\\$_\\\$( \/\* .+ \/ [0-9]+ \*\/)?/, \"/* $pn:$sn:$n / \" FNR \" */ \$_\$ /* $pn:$sn:$n / \" FNR \" */ \")}; 1" $f > $BLD/$bd/$n
         fi
-        # настройка search_path для create и make
-        if [[ $n =~ .+_wsd_[0-9][0-9][0-9].sql ]]; then
-            sn=$PGM_STORE
-        fi
         
         if [[ ! "$search_set" ]] && [[ "$n" > "12_00" ]]; then
           echo "DO \$_\$ BEGIN IF (SELECT count(1) FROM pg_namespace WHERE nspname = '$sn') > 0 THEN SET search_path = $sn, $PGM_SCHEMA, public; ELSE SET search_path = $PGM_SCHEMA, public; END IF; END; \$_\$;" >> $BLD/build.sql
