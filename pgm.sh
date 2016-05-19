@@ -178,17 +178,18 @@ EOF
   local path=$ROOT/sql
 
   pushd $path > /dev/null
-  echo "Seeking dirs in '$pkg'..."
+  echo "Seeking dirs in $pkg..."
   local dirs=$BLD/build.dirs
   echo -n > $dirs
   for tag in $pkg ; do
     [ -d "$tag" ] || continue
     if [[ "$run_op_arg" == "creatif" ]] ; then
+      echo "Check if package $tag exists"
       # do nothing if pkg exists, create otherwise
       local sql="SELECT EXISTS(SELECT id FROM ws.pkg WHERE code='$tag');"
       local exists=$(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
-      if [[ "$exists" == "t" ]] ; then
-        echo "Skip '$pkg'"
+      if [[ "$exists" == " t" ]] ; then
+        echo "Skip existing package '$tag'"
         continue
       else
         run_op="create"
@@ -313,6 +314,7 @@ EOF
       # тесты для create и make
       echo "SET LOCAL search_path = $PGM_SCHEMA, public;" >> $BLD/build.sql
       # TODO: 01_require.sql
+      # файлы 9?_*.macro.sql просто копируем - они вспомогательные
       [ -f 9?_*.macro.sql ] && cp 9?_*.macro.sql $BLD/$bd/
       for f in 9?_*.sql ; do
         [ -s "$f" ] || continue
@@ -512,7 +514,8 @@ PGM_STORE="wsd"
 [[ "$cmd" == "anno" ]] || cat <<EOF
   ---------------------------------------------------------
   PgM. Postgresql Database Manager
-  Connect:  "dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
+  Connect: "dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
+  Command: $cmd
   ---------------------------------------------------------
 EOF
 
@@ -547,7 +550,7 @@ case "$cmd" in
     db_anno
     ;;
   *)
-    echo "Unknown command ($cmd)"
+    echo "Unknown command"
     db_help
     ;;
 esac
