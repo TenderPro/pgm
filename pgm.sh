@@ -316,6 +316,8 @@ EOF
       # TODO: 01_require.sql
       # файлы 9?_*.macro.sql просто копируем - они вспомогательные
       [ -f 9?_*.macro.sql ] && cp 9?_*.macro.sql $BLD/$bd/
+      #  если есть каталог с данными - создаем симлинк
+      [ -d data ] && ln -s $PWD/data $BLD/$bd/data
       for f in 9?_*.sql ; do
         [ -s "$f" ] || continue
         [[ "${f%.macro.sql}" == "$f" ]] || continue  # skip .macro.sql
