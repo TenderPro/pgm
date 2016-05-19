@@ -14,6 +14,7 @@ db_help() {
   Where COMMAND is one from
     init - create .config file
     create - create DB objects
+    creatif - create DB objects if not exists
     make - compile code
     drop - drop DB objects
     erase - drop DB objects
@@ -156,10 +157,12 @@ log() {
 # ------------------------------------------------------------------------------
 db_run() {
 
-  local run_op=$1 ; shift
+  local run_op_arg=$1 ; shift
   local file_mask=$1 ; shift
   local pkg=$@
   local use_flag
+
+  local run_op=$run_op_arg
 
   [[ "$pkg" ]] || pkg=$PGM_PKG
 
@@ -167,7 +170,6 @@ db_run() {
   DB Package:  $pkg
 EOF
   db_show_logfile
-
   schema_mask="??_*"
   db_run_sql_begin $BLD/build.sql
 
@@ -181,6 +183,18 @@ EOF
   echo -n > $dirs
   for tag in $pkg ; do
     [ -d "$tag" ] || continue
+    if [[ "$run_op_arg" == "creatif" ]] ; then
+      # do nothing if pkg exists, create otherwise
+      local sql="SELECT EXISTS(SELECT id FROM ws.pkg WHERE code='$tag');"
+      local exists=$(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
+      if [[ "$exists" == "t" ]] ; then
+        echo "Skip '$pkg'"
+        continue
+      else
+        run_op="create"
+      fi
+    fi
+
     # look for
     # A: tag/*.sql (if schema = tag)
     # B: tag/sql/NN_schema/*.sql
@@ -508,6 +522,9 @@ case "$cmd" in
   create)
     db_run create "[1-8]?_*.sql" "$pkg"
     ;;
+  creatif)
+    db_run creatif "[1-8]?_*.sql" "$pkg"
+    ;;
   drop)
     db_run drop "00_*.sql 02_*.sql" "$pkg"
     ;;
@@ -530,6 +547,7 @@ case "$cmd" in
     db_anno
     ;;
   *)
+    echo "Unknown command ($cmd)"
     db_help
     ;;
 esac
