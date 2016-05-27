@@ -209,8 +209,6 @@ EOF
       if [[ "$exists" == " t" ]] ; then
         echo "Drop existing package '$tag'"
         run_op="drop"  
-      else
-        continue
       fi
     fi
   
