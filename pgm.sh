@@ -156,12 +156,151 @@ log() {
 }
 
 # ------------------------------------------------------------------------------
+
+generate_build_sql() {
+
+  echo "Seeking files..."
+  local cat_cmd="cat"
+  [[ "$op_is_del" ]] && cat_cmd=$TAC_BIN # Проходим каталоги в обратном порядке
+  local p_pre=""
+  echo -n "0" > $BLD/test.cnt
+  $cat_cmd $dirs | while read p s ; do
+
+  pn=${p%%/sql} # package name
+  sn=${s#??_}   # schema name
+  bd=$pn     # build dir
+  if [[ "$sn" ]] ; then
+    bd=$bd-$sn
+  else 
+    sn=$pn
+  fi 
+  debug " ********* $pn / $sn / $bd "    
+  if [[ "$p" != "$p_pre" ]] ; then
+    echo -n "$pn: "
+    echo "\\qecho '-- ******* Package: $pn --'" >> $BLD/build.sql
+    echo "\\set PKG $pn" >> $BLD/build.sql
+  fi
+  echo "\\set SCH $sn" >> $BLD/build.sql
+  echo "\\qecho '-- ------- Schema: $sn'" >> $BLD/build.sql
+  if [[ "$pn:$sn" != "$PGM_PKG:$PGM_SCHEMA" || "$run_op" != "create" ]] ; then
+    # начало выполнения операции (не вызывается только для create схемы $PGM_SCHEMA пакета $PGM_PKG)
+    echo "SELECT $PGM_SCHEMA.pkg_op_before('$run_op', '$pn', '$sn', '$LOGNAME', '$USERNAME', '$SSH_CLIENT');" >> $BLD/build.sql
+  fi
+
+  [ -d "$BLD/$bd" ] || mkdir $BLD/$bd
+  echo -n > $BLD/errors.diff
+  pushd $p > /dev/null
+  [[ "$s" ]] && pushd $s > /dev/null
+  local search_set=""
+  debug "Search $file_mask in $PWD"
+  for f in $file_mask ; do
+    [ -f "$f" ] || continue
+    echo -n "."
+    n=$(basename $f)
+    debug "Found: $s/$f ($n)"
+    echo "Processing file: $s/$f" >> $LOGFILE
+    local csum=""
+    if test $f -nt $BLD/$bd/$n ; then
+      # $f is newer than $BLD/$bd/$n
+
+      csum0=$($CSUM_BIN $f)
+      csum=${csum0%  *}
+      echo "\\qecho '----- ($csum) $pn:$sn:$n -----'">> $BLD/build.sql
+      # вариант с заменой 1го вхождения + поддержка plperl
+      $AWK_BIN "{ print gensub(/(\\\$_\\\$)($| +#?)/, \"\\\1\\\2 /* $pn:$sn:\" FILENAME \" / \" FNR \" */ \",\"g\")};" $f > $BLD/$bd/$n
+      # вариант без удаления прошлых комментариев
+      # awk "{gsub(/\\\$_\\\$(\$| #?)/, \"/* $pn:$sn:$n / \" FNR \" */ \$_\$ /* $pn:$sn:$n / \" FNR \" */ \")}; 1" $f > $BLD/$bd/$n
+      # вариант с удалением прошлых комментариев
+      # awk "{gsub(/(\/\* .+ \/ [0-9]+ \*\/ )?\\\$_\\\$( \/\* .+ \/ [0-9]+ \*\/)?/, \"/* $pn:$sn:$n / \" FNR \" */ \$_\$ /* $pn:$sn:$n / \" FNR \" */ \")}; 1" $f > $BLD/$bd/$n
+    fi
+    # настройка search_path для create и make
+    if [[ ! "$search_set" ]] && [[ "$n" > "12_00" ]]; then
+      echo "DO \$_\$ BEGIN IF (SELECT count(1) FROM pg_namespace WHERE nspname = '$sn') > 0 THEN SET search_path = $sn, $PGM_SCHEMA, public; ELSE SET search_path = $PGM_SCHEMA, public; END IF; END; \$_\$;" >> $BLD/build.sql
+      search_set=1
+    fi
+
+    local db_csum=""
+    local skip_file=""
+    if [[ "$n" =~ .+_${PGM_STORE}_[0-9]{3}\.sql ]]; then  # old bash: ${X%_wsd_[0-9][0-9][0-9].sql}
+      # protected script
+      [[ "$csum" == "" ]] && csum0=$($CSUM_BIN $f) && csum=${csum0%  *}
+      local db_csum=$(file_protected_csum $pn $sn $n)
+
+      debug "$f protected: $db_csum /$csum"
+      if [[ "$db_csum" ]]; then
+        if [[ "$db_csum" != "$csum" ]]; then
+          echo "!!!WARNING!!! Changed control sum of protected file $f. Use 'db erase' or 'git checkout -- $f'"
+          skip_file=1
+        else
+          # already installed. Skip
+          skip_file=1
+        fi
+      else
+        # save csum
+        db_csum=$csum
+      fi
+    fi
+    # однократный запуск PROTECTED
+    if [[ ! "$skip_file" ]]; then
+      echo "\\set FILE $n" >> $BLD/build.sql
+      echo "\i $bd/$n" >> $BLD/build.sql
+      [[ "$db_csum" ]] && echo "INSERT INTO $PGM_STORE.pkg_script_protected (pkg, schema, code, csum) VALUES ('$pn', '$sn', '$n', '$db_csum');" >> $BLD/build.sql 
+    else
+      echo "\\qecho '----- SKIPPED PROTECTED FILE  -----'" >> $BLD/build.sql
+      [[ "$db_csum" != "$csum" ]] && echo "\\qecho '!!!WARNING!!! db csum $db_csum <> file csum $csum'" >> $BLD/build.sql
+    fi
+  done
+  if [[ ! "$op_is_del" ]] ; then
+    # тесты для create и make
+    echo "SET LOCAL search_path = $PGM_SCHEMA, public;" >> $BLD/build.sql
+    # TODO: 01_require.sql
+    # файлы 9?_*.macro.sql просто копируем - они вспомогательные
+    [ -f 9?_*.macro.sql ] && cp 9?_*.macro.sql $BLD/$bd/
+    #  если есть каталог с данными - создаем симлинк
+    [ -d data ] && [ ! -L $BLD/$bd/data ] && ln -s $PWD/data $BLD/$bd/data
+    for f in 9?_*.sql ; do
+      [ -s "$f" ] || continue
+      [[ "${f%.macro.sql}" == "$f" ]] || continue  # skip .macro.sql
+      echo -n "."
+      n=$(basename $f)
+      debug "Found test: $f"
+      echo "Processing file: $f" >> $LOGFILE
+      c=$(grep -ciE "^\s*select\s+$PGM_SCHEMA.test\(" $f)
+      [[ "$c" ]] && echo -n "+$c" >> $BLD/test.cnt
+      cp -p $f $BLD/$bd/$n # no replaces in test file
+      n1=${n%.sql} # remove ext
+      db_run_test $bd $n $n1 $sn $BLD/build.sql
+      cp $n1.out $BLD/$bd/$n1.out.orig 2>>  $BLD/errors.diff
+      echo "\! diff -c $bd/$n1.out.orig $bd/$n1.out | tr \"\t\" \" \" >> errors.diff" >> $BLD/build.sql
+      db_run_test_end $BLD/build.sql
+    done
+  fi
+  [[ "$s" ]] && popd > /dev/null # $s
+  popd > /dev/null # $p
+
+  [[ "KEEP_SQL" ]] || echo "\! rm -rf $bd" >> $BLD/build.sql
+
+  # завершение выполнения операции (не вызывается только для drop/erase схемы $PGM_SCHEMA пакета $PGM_PKG)
+  ( [[ "$pn:$sn" != "$PGM_PKG:$PGM_SCHEMA" ]] || [[ ! "$op_is_del" ]] ) \
+    && echo "SELECT $PGM_SCHEMA.pkg_op_after('$run_op', '$pn', '$sn', '$LOGNAME', '$USERNAME', '$SSH_CLIENT');" >> $BLD/build.sql
+  p_pre=$p
+  echo .
+  done
+}
+
+is_pkg_exists() {
+  local sql="SELECT EXISTS(SELECT id FROM ws.pkg WHERE code='$1');"
+  echo $(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
+}
+
+# ------------------------------------------------------------------------------
 db_run() {
 
   local run_op_arg=$1 ; shift
   local file_mask=$1 ; shift
   local file_mask_ext=none
   if test "$#" -eq 2; then
+    # осталось два аргумента, первый - маска файлов для второго прохода
     file_mask_ext=$1 ; shift  
   fi
   
@@ -192,9 +331,7 @@ EOF
     if [[ "$run_op_arg" == "creatif" ]] ; then
       echo "Check if package $tag exists"
       # do nothing if pkg exists, create otherwise
-      local sql="SELECT EXISTS(SELECT id FROM ws.pkg WHERE code='$tag');"
-      local exists=$(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
-      if [[ "$exists" == " t" ]] ; then
+      if [[ $(is_pkg_exists $tag) == " t" ]] ; then
         echo "Skip existing package '$tag'"
         continue
       else
@@ -204,9 +341,7 @@ EOF
 
     if [[ "$run_op_arg" == "recreate" ]] ; then
       echo "Drop package $tag if exists"
-      local sql="SELECT EXISTS(SELECT id FROM ws.pkg WHERE code='$tag');"
-      local exists=$(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
-      if [[ "$exists" == " t" ]] ; then
+      if [[ $(is_pkg_exists $tag) == " t" ]] ; then
         echo "Drop existing package '$tag'"
         run_op="drop"  
       fi
@@ -234,138 +369,6 @@ EOF
       done
     fi
   done
-
-  generate_build_sql()
-  {
-    echo "Seeking files..."
-    local cat_cmd="cat"
-    [[ "$op_is_del" ]] && cat_cmd=$TAC_BIN # Проходим каталоги в обратном порядке
-    local p_pre=""
-    echo -n "0" > $BLD/test.cnt
-    $cat_cmd $dirs | while read p s ; do
-
-    pn=${p%%/sql} # package name
-    sn=${s#??_}   # schema name
-    bd=$pn     # build dir
-    if [[ "$sn" ]] ; then
-      bd=$bd-$sn
-    else 
-      sn=$pn
-    fi 
-    debug " ********* $pn / $sn / $bd "    
-    if [[ "$p" != "$p_pre" ]] ; then
-      echo -n "$pn: "
-      echo "\\qecho '-- ******* Package: $pn --'" >> $BLD/build.sql
-      echo "\\set PKG $pn" >> $BLD/build.sql
-    fi
-    echo "\\set SCH $sn" >> $BLD/build.sql
-    echo "\\qecho '-- ------- Schema: $sn'" >> $BLD/build.sql
-    if [[ "$pn:$sn" != "$PGM_PKG:$PGM_SCHEMA" || "$run_op" != "create" ]] ; then
-      # начало выполнения операции (не вызывается только для create схемы $PGM_SCHEMA пакета $PGM_PKG)
-      echo "SELECT $PGM_SCHEMA.pkg_op_before('$run_op', '$pn', '$sn', '$LOGNAME', '$USERNAME', '$SSH_CLIENT');" >> $BLD/build.sql
-    fi
-
-    [ -d "$BLD/$bd" ] || mkdir $BLD/$bd
-    echo -n > $BLD/errors.diff
-    pushd $p > /dev/null
-    [[ "$s" ]] && pushd $s > /dev/null
-    local search_set=""
-    debug "Search $file_mask in $PWD"
-    for f in $file_mask ; do
-      if [ -f "$f" ] ; then
-      echo -n "."
-      n=$(basename $f)
-      debug "Found: $s/$f ($n)"
-      echo "Processing file: $s/$f" >> $LOGFILE
-      local csum=""
-      if test $f -nt $BLD/$bd/$n ; then
-        # $f is newer than $BLD/$bd/$n
-
-        csum0=$($CSUM_BIN $f)
-        csum=${csum0%  *}
-        echo "\\qecho '----- ($csum) $pn:$sn:$n -----'">> $BLD/build.sql
-        # вариант с заменой 1го вхождения + поддержка plperl
-        $AWK_BIN "{ print gensub(/(\\\$_\\\$)($| +#?)/, \"\\\1\\\2 /* $pn:$sn:\" FILENAME \" / \" FNR \" */ \",\"g\")};" $f > $BLD/$bd/$n
-        # вариант без удаления прошлых комментариев
-        # awk "{gsub(/\\\$_\\\$(\$| #?)/, \"/* $pn:$sn:$n / \" FNR \" */ \$_\$ /* $pn:$sn:$n / \" FNR \" */ \")}; 1" $f > $BLD/$bd/$n
-        # вариант с удалением прошлых комментариев
-        # awk "{gsub(/(\/\* .+ \/ [0-9]+ \*\/ )?\\\$_\\\$( \/\* .+ \/ [0-9]+ \*\/)?/, \"/* $pn:$sn:$n / \" FNR \" */ \$_\$ /* $pn:$sn:$n / \" FNR \" */ \")}; 1" $f > $BLD/$bd/$n
-      fi
-      # настройка search_path для create и make
-      if [[ ! "$search_set" ]] && [[ "$n" > "12_00" ]]; then
-        echo "DO \$_\$ BEGIN IF (SELECT count(1) FROM pg_namespace WHERE nspname = '$sn') > 0 THEN SET search_path = $sn, $PGM_SCHEMA, public; ELSE SET search_path = $PGM_SCHEMA, public; END IF; END; \$_\$;" >> $BLD/build.sql
-        search_set=1
-      fi
-
-      local db_csum=""
-      local skip_file=""
-      if [[ "$n" =~ .+_${PGM_STORE}_[0-9]{3}\.sql ]]; then  # old bash: ${X%_wsd_[0-9][0-9][0-9].sql}
-        # protected script
-        [[ "$csum" == "" ]] && csum0=$($CSUM_BIN $f) && csum=${csum0%  *}
-        local db_csum=$(file_protected_csum $pn $sn $n)
-
-        debug "$f protected: $db_csum /$csum"
-        if [[ "$db_csum" ]]; then
-        if [[ "$db_csum" != "$csum" ]]; then
-          echo "!!!WARNING!!! Changed control sum of protected file $f. Use 'db erase' or 'git checkout -- $f'"
-          skip_file=1
-        else
-          # already installed. Skip
-          skip_file=1
-        fi
-        else
-        # save csum
-        db_csum=$csum
-        fi
-      fi
-      # однократный запуск PROTECTED
-      if [[ ! "$skip_file" ]]; then
-        echo "\\set FILE $n" >> $BLD/build.sql
-        echo "\i $bd/$n" >> $BLD/build.sql
-        [[ "$db_csum" ]] && echo "INSERT INTO $PGM_STORE.pkg_script_protected (pkg, schema, code, csum) VALUES ('$pn', '$sn', '$n', '$db_csum');" >> $BLD/build.sql 
-      else
-        echo "\\qecho '----- SKIPPED PROTECTED FILE  -----'" >> $BLD/build.sql
-        [[ "$db_csum" != "$csum" ]] && echo "\\qecho '!!!WARNING!!! db csum $db_csum <> file csum $csum'" >> $BLD/build.sql
-      fi
-      fi
-    done
-    if [[ ! "$op_is_del" ]] ; then
-      # тесты для create и make
-      echo "SET LOCAL search_path = $PGM_SCHEMA, public;" >> $BLD/build.sql
-      # TODO: 01_require.sql
-      # файлы 9?_*.macro.sql просто копируем - они вспомогательные
-      [ -f 9?_*.macro.sql ] && cp 9?_*.macro.sql $BLD/$bd/
-      #  если есть каталог с данными - создаем симлинк
-      [ -d data ] && [ ! -L $BLD/$bd/data ] && ln -s $PWD/data $BLD/$bd/data
-      for f in 9?_*.sql ; do
-      [ -s "$f" ] || continue
-      [[ "${f%.macro.sql}" == "$f" ]] || continue  # skip .macro.sql
-      echo -n "."
-      n=$(basename $f)
-      debug "Found test: $f"
-      echo "Processing file: $f" >> $LOGFILE
-      c=$(grep -ciE "^\s*select\s+$PGM_SCHEMA.test\(" $f)
-      [[ "$c" ]] && echo -n "+$c" >> $BLD/test.cnt
-      cp -p $f $BLD/$bd/$n # no replaces in test file
-      n1=${n%.sql} # remove ext
-      db_run_test $bd $n $n1 $sn $BLD/build.sql
-      cp $n1.out $BLD/$bd/$n1.out.orig 2>>  $BLD/errors.diff
-      echo "\! diff -c $bd/$n1.out.orig $bd/$n1.out | tr \"\t\" \" \" >> errors.diff" >> $BLD/build.sql
-      db_run_test_end $BLD/build.sql
-      done
-    fi
-    [[ "$s" ]] && popd > /dev/null # $s
-    popd > /dev/null # $p
-
-    [[ "KEEP_SQL" ]] || echo "\! rm -rf $bd" >> $BLD/build.sql
-
-    # завершение выполнения операции (не вызывается только для drop/erase схемы $PGM_SCHEMA пакета $PGM_PKG)
-    ( [[ "$pn:$sn" != "$PGM_PKG:$PGM_SCHEMA" ]] || [[ ! "$op_is_del" ]] ) \
-      && echo "SELECT $PGM_SCHEMA.pkg_op_after('$run_op', '$pn', '$sn', '$LOGNAME', '$USERNAME', '$SSH_CLIENT');" >> $BLD/build.sql
-    p_pre=$p
-    echo .
-    done
-  }
 
   generate_build_sql
   if [[ "$run_op_arg" == "recreate" ]] ; then
