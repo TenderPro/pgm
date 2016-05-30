@@ -29,6 +29,7 @@ db_help() {
 
 EOF
 }
+
 # ------------------------------------------------------------------------------
 db_init() {
   [ -f .config ] && return
@@ -50,6 +51,7 @@ EOF
   echo ".config created"
   exit 1
 }
+
 # ------------------------------------------------------------------------------
 db_show_logfile() {
   cat <<EOF
@@ -105,8 +107,8 @@ SAVEPOINT ${point}_test;
 ROLLBACK TO SAVEPOINT ${point}_test;
 EOF
 }
-# ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------
 db_run_test_end() {
   local file=$1
   cat >> $file <<EOF
@@ -156,9 +158,7 @@ log() {
 }
 
 # ------------------------------------------------------------------------------
-
 generate_build_sql() {
-
   echo "Seeking files..."
   local cat_cmd="cat"
   [[ "$op_is_del" ]] && cat_cmd=$TAC_BIN # Проходим каталоги в обратном порядке
@@ -288,6 +288,7 @@ generate_build_sql() {
   done
 }
 
+# ------------------------------------------------------------------------------
 is_pkg_exists() {
   local sql="SELECT EXISTS(SELECT id FROM ws.pkg WHERE code='$1');"
   echo -n $(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
@@ -345,10 +346,10 @@ EOF
       local exists=$(is_pkg_exists $tag)
       if [[ $exists == "t" ]] ; then
         echo "Drop existing package '$tag'"
-        run_op="drop"  
+        run_op="drop"
       fi
     fi
-  
+
     # look for
     # A: tag/*.sql (if schema = tag)
     # B: tag/sql/NN_schema/*.sql
@@ -358,7 +359,7 @@ EOF
       # A: tag/*.sql (if schema = tag)
       [ -e "$f" ] && s=$tag
       break
-    done    
+    done
 
     if [[ "$s" ]]; then
       echo "Found: $s"
@@ -391,7 +392,7 @@ EOF
   pushd $BLD > /dev/null
 
   echo "Running build.sql..."
-  
+
   dbd psql -X -P footer=off -f build.sql 3>&1 1>$LOGFILE 2>&3 | log $TEST_TTL
 
   RETVAL=$?
@@ -471,8 +472,8 @@ db_create() {
     && dbl createlang plperl && echo "OK"
   # TODO: ALTER DATABASE $c SET lc_messages='en_US.utf8';
 }
-# ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------
 # Имя БД передается последним аргументом
 dbl() {
   do_db last $@
@@ -490,7 +491,7 @@ do_db() {
   h=$PG_HOST
   d=$DB_NAME
   u=$DB_NAME
-  
+
   if [[ "$dbarg" == "last" ]] ; then
     last=$d ; pre=""
   else
@@ -505,6 +506,7 @@ do_db() {
 debug() {
   [[ "$DEBUG" ]] && echo "[DEBUG]: " $@
 }
+
 # ------------------------------------------------------------------------------
 setup() {
 
