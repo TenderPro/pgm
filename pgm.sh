@@ -290,7 +290,7 @@ generate_build_sql() {
 
 is_pkg_exists() {
   local sql="SELECT EXISTS(SELECT id FROM ws.pkg WHERE code='$1');"
-  echo $(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
+  echo -n $(dbd psql -X -P tuples_only -c "$sql" 2>> /dev/null)
 }
 
 # ------------------------------------------------------------------------------
@@ -331,7 +331,8 @@ EOF
     if [[ "$run_op_arg" == "creatif" ]] ; then
       echo "Check if package $tag exists"
       # do nothing if pkg exists, create otherwise
-      if [[ $(is_pkg_exists $tag) == " t" ]] ; then
+      local exists=$(is_pkg_exists $tag)
+      if [[ $exists == "t" ]] ; then
         echo "Skip existing package '$tag'"
         continue
       else
@@ -341,7 +342,8 @@ EOF
 
     if [[ "$run_op_arg" == "recreate" ]] ; then
       echo "Drop package $tag if exists"
-      if [[ $(is_pkg_exists $tag) == " t" ]] ; then
+      local exists=$(is_pkg_exists $tag)
+      if [[ $exists == "t" ]] ; then
         echo "Drop existing package '$tag'"
         run_op="drop"  
       fi
