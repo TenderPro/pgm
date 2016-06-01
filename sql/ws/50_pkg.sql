@@ -332,3 +332,87 @@ $_$
   END
 $_$;
 SELECT pg_c('f', 'pkg_require', '..');
+/* ------------------------------------------------------------------------- */
+CREATE OR REPLACE FUNCTION pg_store_proc_descr(a_schema TEXT)
+  RETURNS TABLE(name TEXT, comment TEXT, args JSON, result JSON) LANGUAGE sql STABLE AS
+$_$
+  -- a_schema:       название схемы
+  SELECT R.proname
+  , R.description
+  , (
+      CASE WHEN ( SUBSTRING( LTRIM( (R.params)::text ), 1, 1 ) = '"' ) --если скаляр
+      THEN R.params
+      ELSE (
+        SELECT json_agg( T.v ) FROM (
+          SELECT json_array_elements(R.params)->'fld' as v
+        ) T
+      ) end
+  )
+  , (
+      CASE WHEN ( SUBSTRING( LTRIM( (R.result)::text ), 1, 1 ) = '"' ) --если скаляр
+      THEN R.result
+      ELSE (
+        SELECT json_agg( T.v ) FROM (
+          SELECT json_array_elements(R.result)->'fld' as v
+        ) T
+      ) end
+  )
+  FROM (
+    SELECT p.proname::TEXT
+    , pd.description
+    , (
+        SELECT array_to_json( (
+          SELECT array_agg(DISTINCT ROW(T.elem)::ws.t_textarr) ) ) 
+          FROM (
+            SELECT ARRAY[a, b/*, row_number() over()*/]::TEXT[] as elem --порядковый номер аргумента отключен
+            FROM (
+              SELECT UNNEST( p.proargnames ) AS a
+                , UNNEST( ( 
+                    SELECT array_agg( J.type_name)
+                    FROM ( 
+                      SELECT ( 
+                        SELECT ws.pg_type_name(T.type) 
+                      ) as type_name 
+                      FROM (
+                        SELECT UNNEST(p.proargtypes) as type
+                      ) T 
+                    ) J ) 
+                  ) AS b
+            ) x LIMIT pronargs
+          ) T 
+      ) as params
+    , (
+        CASE WHEN p.proretset
+        THEN (
+          SELECT array_to_json( (
+            SELECT array_agg(DISTINCT ROW(T.elem)::ws.t_textarr) ) )
+            FROM (
+              SELECT ARRAY[a, b/*, ( row_number() over() ) - pronargs*/]::TEXT[] as elem  --порядковый номер аргумента отключен
+              FROM (
+                SELECT UNNEST( p.proargnames ) AS a
+                  , UNNEST( ( 
+                      SELECT array_agg(J.type_name)
+                        FROM (
+                          SELECT ( 
+                            SELECT ws.pg_type_name(T.type) 
+                          ) as type_name 
+                          FROM (
+                            SELECT UNNEST(p.proallargtypes) as type
+                          ) T
+                        ) J ) 
+                      ) AS b
+              ) x offset pronargs
+            ) T 
+        )
+        ELSE
+          to_json(pg_catalog.format_type(p.prorettype, NULL))
+        END 
+      ) as result
+    FROM pg_catalog.pg_proc p
+      JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+      LEFT JOIN pg_description pd ON pd.objoid = p.oid
+    WHERE n.nspname = a_schema
+  ) R
+$_$;
+SELECT pg_c('f', 'pg_store_proc_descr', 'получить описание аргументов и параметров хранимых процедур в указанной схеме');
+/* ------------------------------------------------------------------------- */
