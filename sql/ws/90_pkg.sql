@@ -1,6 +1,6 @@
 /*
 
-    Copyright (c) 2010, 2012 Tender.Pro http://tender.pro.
+    Copyright (c) 2010, 2016 Tender.Pro http://tender.pro.
     [SQL_LICENSE]
 
     Тестирование пакета ws
