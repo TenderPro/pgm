@@ -320,7 +320,7 @@ EOF
   db_run_sql_begin $BLD/build.sql
 
   op_is_del=""
-  [[ "$run_op" == "drop" || "$run_op" == "erase" || "$run_op" == "recreate" ]] && op_is_del=1
+  [[ "$run_op" == "drop" || "$run_op" == "erase" ]] && op_is_del=1
   local path=$ROOT/sql
 
   pushd $path > /dev/null
@@ -330,23 +330,29 @@ EOF
   for tag in $pkg ; do
     [ -d "$tag" ] || continue
     if [[ "$run_op_arg" == "creatif" ]] ; then
-      echo "Check if package $tag exists"
+      echo -n "Check if package $tag exists: "
       # do nothing if pkg exists, create otherwise
       local exists=$(is_pkg_exists $tag)
       if [[ $exists == "t" ]] ; then
-        echo "Skip existing package '$tag'"
+        echo "Yes, skip"
         continue
       else
+        echo "No"
         run_op="create"
       fi
     fi
 
     if [[ "$run_op_arg" == "recreate" ]] ; then
-      echo "Drop package $tag if exists"
+      echo -n "Check if package $tag exists: "
       local exists=$(is_pkg_exists $tag)
       if [[ $exists == "t" ]] ; then
-        echo "Drop existing package '$tag'"
+        echo "Yes, will drop"
         run_op="drop"
+        op_is_del=1
+      else
+        echo "No, just create"
+        run_op="create"
+        file_mask=$file_mask_ext
       fi
     fi
 
@@ -374,7 +380,8 @@ EOF
   done
 
   generate_build_sql
-  if [[ "$run_op_arg" == "recreate" ]] ; then
+  if [[ "$run_op_arg" == "recreate" && "$run_op" == "drop" ]] ; then
+    # pkg dropped, create it
     op_is_del=
     run_op="create"  
     file_mask=$file_mask_ext
