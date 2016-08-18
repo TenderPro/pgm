@@ -215,7 +215,7 @@ generate_build_sql() {
     fi
     # настройка search_path для create и make
     if [[ ! "$search_set" ]] && [[ "$n" > "12_00" ]]; then
-      echo "DO \$_\$ BEGIN IF (SELECT count(1) FROM pg_namespace WHERE nspname = '$sn') > 0 THEN SET search_path = $sn, $PGM_SCHEMA, public; ELSE SET search_path = $PGM_SCHEMA, public; END IF; END; \$_\$;" >> $BLD/build.sql
+      echo "DO \$_\$ BEGIN IF (SELECT count(1) FROM pg_namespace WHERE nspname = '$sn') > 0 AND '$sn' <> '$PGM_SCHEMA' THEN SET search_path = $sn, $PGM_SCHEMA, public; ELSE SET search_path = $PGM_SCHEMA, public; END IF; END; \$_\$;" >> $BLD/build.sql
       search_set=1
     fi
 
