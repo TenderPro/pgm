@@ -275,3 +275,8 @@ sql/upd код обновления версий
 NNN/ - каталог обновления
     MM-* - файл с обновлением
 Файлы выполняются в порядке сортировки имен, в рамках одной транзакции, однократно.
+
+License
+-------
+
+This project is under the MIT License. See the [LICENSE](LICENSE) file for the full license text.
