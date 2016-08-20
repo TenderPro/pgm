@@ -166,7 +166,7 @@ generate_build_sql() {
   echo -n "0" > $BLD/test.cnt
   $cat_cmd $dirs | while read p s ; do
 
-  pn=${p%%/sql} # package name
+  pn=${p%%/sql} # package name without suffix
   sn=${s#??_}   # schema name
   bd=$pn     # build dir
   if [[ "$sn" ]] ; then
@@ -321,7 +321,7 @@ EOF
 
   op_is_del=""
   [[ "$run_op" == "drop" || "$run_op" == "erase" ]] && op_is_del=1
-  local path=$ROOT/sql
+  local path=$ROOT/$SQLROOT
 
   pushd $path > /dev/null
   echo "Seeking dirs in $pkg..."
@@ -505,8 +505,8 @@ do_db() {
     last="" ; pre="-d $d"
   fi
   arr=$@
-  echo ${#arr[@]} >> $ROOT/var/log.sql
-  echo $cmd -U $u -h $h $pre $@ $last >> $ROOT/var/log.sql
+  #echo ${#arr[@]} >> $ROOT/var/log.sql
+  #echo $cmd -U $u -h $h $pre $@ $last >> $ROOT/var/log.sql
   [[ "$DO_SQL" ]] && PGPASSWORD=$DB_PASS ${PG_BINDIR}$cmd -U $u -h $h $pre "$@" $last
 }
 
@@ -548,6 +548,9 @@ STAMP=$(date +%y%m%d-%H%m)-$$
 LOGDIR=$ROOT/var/build/log
 LOGFILE=$LOGDIR/$cmd-$STAMP.log
 [ -d $LOGDIR ] || mkdir -p $LOGDIR
+
+# Where sql packages are
+[[ "$SQLROOT" ]] || SQLROOT=sql
 
 setup
 
