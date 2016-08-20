@@ -22,7 +22,7 @@ $_$;
 SELECT pg_c('f', 'compile_errors_chk', 'сообщение компиляции');
 
 /* ------------------------------------------------------------------------- */
-CREATE OR REPLACE FUNCTION test(a_code d_code) RETURNS TEXT VOLATILE LANGUAGE 'plpgsql' AS
+CREATE OR REPLACE FUNCTION test(a_code TEXT) RETURNS TEXT VOLATILE LANGUAGE 'plpgsql' AS
 $_$
   -- a_code:  сообщение для теста
   BEGIN
