@@ -64,6 +64,3 @@ CREATE OR REPLACE VIEW pg_sql AS
     WHERE query <> '<IDLE>'
     ORDER BY duration DESC
 ;
-GRANT SELECT ON pg_sql TO public;
-
-
