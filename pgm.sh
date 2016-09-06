@@ -12,44 +12,113 @@ db_help() {
     $0 COMMAND [PKG]
 
   Where COMMAND is one from
-    init - create .config file
-    create - create DB objects
-    creatif - create DB objects if not exists
-    recreate - drop DB objects if exists and create	
-    make - compile code
-    drop - drop DB objects
-    erase - drop DB objects
+    init     - create .config file (if PKG not set)
+    init     - create PKG skeleton files
+    create   - create PKG objects
+    creatif  - create PKG objects if not exists
+    recreate - drop PKG objects if exists and create	
+    make     - compile PKG code
+    drop     - drop PKG objects intender to rebuild
+    erase    - drop all of PKG objects including persistent data
 
     createdb - create database (if shell user granted)
 
-    dump - dump schema SRC (Default: all)
-    restore - restore dump from SRC
+    dump     - dump schema SRC (Default: all)
+    restore  - restore dump from SRC
 
-    PKG  - dirname(s) from sql. Default: "ws"
+    PKG      - package, dirname(s) inside sql/ dir. Default: "ws"
 
 EOF
 }
 
 # ------------------------------------------------------------------------------
 db_init() {
-  [ -f .config ] && return
-  cat > .config <<EOF
+  local file=$1
+  [ -f $file ] && return
+  cat > $file <<EOF
 #
 # PGM config file
 #
-# DBI connect
-CONN="dbname=pgm01;user=op;host=localhost;password=op"
+
+# Database name
+DB_NAME=pgm01
+
+# User name
+DB_USER=op
+
+# User password
+DB_PASS=op_secret
+
+# Database host
+PG_HOST=localhost
+
+# Template database
+DB_TEMPLATE=template0 
+
 # Project root
 ROOT=\$PWD
+
 # Directory of Postgresql binaries (psql, pg_dump, pg_restore, createdb, createlang)
 # Empty if they are in search path
-# Command to check: dirname "$(whereis -b psql)"
+# Command to check: dirname "\$(whereis -b psql)"
 PG_BINDIR=""
+
 # Do not remove sql preprocess files (var/build)
 KEEP_SQL="1"
 EOF
-  echo ".config created"
-  exit 1
+
+}
+
+sql_template() {
+  cat <<EOF
+/*
+  pgm. $1
+*/
+
+-- ----------------------------------------------------------------------------
+
+EOF
+  case "$1" in
+    drop) 
+      echo "DROP SCHEMA :SCH CASCADE;"
+    ;;
+    create)
+      echo "CREATE SCHEMA :SCH;"
+      echo "COMMENT ON SCHEMA :SCH IS 'created by pgm';"
+    ;;
+    test)
+      echo "SELECT test('testname');"
+      echo "SELECT TRUE AS result;"
+    ;;
+  esac
+}
+
+# ------------------------------------------------------------------------------
+# copy of psql output
+sql_template_test() {
+  cat <<EOF
+         test          
+-----------------------
+  ***** testname *****
+
+ result 
+--------
+ t
+
+EOF
+}
+
+# ------------------------------------------------------------------------------
+db_init_pkg() {
+  local dir=sql
+  for p in $@ ; do
+    echo $p
+    [ -d $dir/$p ] || mkdir -p $dir/$p
+    [ -f $dir/$p/02_drop.sql ] || sql_template drop > $dir/$p/02_drop.sql
+    [ -f $dir/$p/11_create.sql ] || sql_template create > $dir/$p/11_create.sql
+    [ -f $dir/$p/90_test.sql ] || sql_template test > $dir/$p/90_test.sql
+    [ -f $dir/$p/90_test.out ] || sql_template_test > $dir/$p/90_test.out
+  done
 }
 
 # ------------------------------------------------------------------------------
@@ -473,10 +542,10 @@ db_create() {
     echo "$bin must be in search path to use this feature"
     exit
   fi
-  echo -n "Create database \"$c\"..."
+  echo -n "Create database '$DB_NAME' ..."
   dbd psql -X -P tuples_only -c "SELECT NULL" > /dev/null 2>> $LOGFILE && { echo "Database already exists" ; exit ; }
-  dbl createdb -O $u -E UTF8 -T template0 --lc-collate=C --lc-ctype='ru_RU.UTF-8' \
-    && dbl createlang plperl && echo "OK"
+  dbl createdb -O $u -E UTF8 -T $DB_TEMPLATE && echo "OK"
+  #  && dbl createlang plperl 
   # TODO: ALTER DATABASE $c SET lc_messages='en_US.utf8';
 }
 
@@ -497,8 +566,7 @@ do_db() {
   cmd=$1   ; shift
   h=$PG_HOST
   d=$DB_NAME
-  u=$DB_NAME
-
+  u=$DB_USER
   if [[ "$dbarg" == "last" ]] ; then
     last=$d ; pre=""
   else
@@ -526,19 +594,32 @@ setup() {
 
 }
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 cmd=$1
 shift
 pkg=$@
 
+ROOT=$PWD
 [[ "$PWD" == "/" ]] && ROOT="/var/log/supervisor"
 
 if [ -z "$DB_NAME" ]; then
   cd $ROOT
   echo 'DB_NAME not configured, loading .config'
-  [[ "$cmd" == "init" ]] && db_init
+  if [[ "$cmd" == "init" ]] ; then
+    if [[ "$pkg" ]] ; then
+      db_init_pkg $pkg
+    else
+      db_init .config
+    fi
+    echo "Init complete"
+    exit 0
+  fi
   . .config  
 fi
+
+[[ "$DB_USER" ]] || DB_USER=$DB_NAME
+[[ "$DB_TEMPLATE" ]] || DB_TEMPLATE=template0
 
 [[ "$ROOT" ]] || ROOT=$PWD
 DO_SQL=1
