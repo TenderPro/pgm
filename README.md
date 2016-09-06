@@ -18,14 +18,14 @@ git clone git@git.it.tender.pro:iac/pgm.git
 
 Создаем файл настроек .config
 ```
-$ bash pgm/pgm.sh init
+bash pgm/pgm.sh init
 ```
 
 Редактируем .config. Надо прописать пользователя с правами создания БД. Его можно создать, используя [Доступ к БД под суперпользователем](http://git.it.tender.pro/iac/pg-skel#--psql--).
 
 Создание БД
 ```
-$ bash pgm/pgm.sh createdb
+bash pgm/pgm.sh createdb
 ```
 
 Создание объектов pgm
@@ -320,8 +320,9 @@ NNN/ - каталог обновления
     MM-* - файл с обновлением
 Файлы выполняются в порядке сортировки имен, в рамках одной транзакции, однократно.
 
-
 License
 -------
 
 This project is under the MIT License. See the [LICENSE](LICENSE) file for the full license text.
+
+Copyright (c) 2010 - 2016 [Tender.Pro](http://www.tender.pro)
