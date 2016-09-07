@@ -54,7 +54,7 @@ DB_PASS=op_secret
 PG_HOST=localhost
 
 # Template database
-DB_TEMPLATE=template0 
+DB_TEMPLATE=tpro-template
 
 # Project root
 ROOT=\$PWD

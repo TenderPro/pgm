@@ -29,6 +29,8 @@ bash pgm/pgm.sh init
 
 Редактируем .config. Надо прописать пользователя с правами создания БД. Его можно создать, используя [Доступ к БД под суперпользователем](http://git.it.tender.pro/iac/pg-skel#--psql--).
 
+В параметре **DB_TEMPLATE** надо указать имя шаблона БД, созданного с помощью [pg-skel](http://git.it.tender.pro/iac/pg-skel).
+
 Создание БД
 ```
 bash pgm/pgm.sh createdb
