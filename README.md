@@ -49,6 +49,16 @@ bash pgm/pgm.sh init demo
 
 Загрузка пакета demo в БД
 ```
+bash pgm/pgm.sh create demo
+```
+
+Повторная загрузка пакета demo с предварительным удалением
+```
+bash pgm/pgm.sh recreate demo
+```
+
+Компиляция хранимого кода пакета demo
+```
 bash pgm/pgm.sh make demo
 ```
 
