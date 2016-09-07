@@ -12,6 +12,7 @@ db_help() {
     $0 COMMAND [PKG]
 
   Where COMMAND is one from
+    check    - check for required programs presense
     init     - create .config file (if PKG not set)
     init     - create PKG skeleton files
     create   - create PKG objects
@@ -594,11 +595,32 @@ setup() {
 
 }
 # ------------------------------------------------------------------------------
+do_check() {
+  local bad=""
+  echo "Checking used programs.."
+  for app in gawk psql createdb pg_dump pg_restore gzip ; do
+    echo -n "  $app.."
+     printf '%*.*s' 0 $((20 - ${#app})) "......................"
+    if command -v $app > /dev/null 2>&1 ; then
+      echo " Ok"
+    else
+      echo " Does not exists"
+      bad="1"
+    fi
+  done
+  if [[ "$bad" ]] ; then
+    echo "Some used programs are not installed. This may cause errors"
+    exit 1
+  fi
+  exit 0
+}
 # ------------------------------------------------------------------------------
 
 cmd=$1
 shift
 pkg=$@
+
+[[ "$cmd" == "check" ]] && do_check
 
 ROOT=$PWD
 [[ "$PWD" == "/" ]] && ROOT="/var/log/supervisor"
