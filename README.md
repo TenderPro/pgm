@@ -325,6 +325,7 @@ docker exec -i "pgrest_$${APP_SITE}_www" /bin/bash pgm.sh drop iac rest
 
 ## TODO
 
+* удалять из pkg_script_protected по имени пакета
 * вылетать по ошибке если в пакете при выполнении drop/create не найдено файлов
 * добавить команду test
 * добавить команду bench
