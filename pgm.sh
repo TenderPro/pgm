@@ -138,6 +138,8 @@ db_run_sql_begin() {
 \qecho '-- _build.sql / BEGIN --'
 \cd $ROOT/var/build
 
+\timing on
+\set ECHO all
 BEGIN;
 \set ON_ERROR_STOP 1
 SET CLIENT_ENCODING TO 'utf-8';
