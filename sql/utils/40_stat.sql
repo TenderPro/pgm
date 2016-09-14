@@ -59,7 +59,7 @@ CREATE OR REPLACE VIEW pg_sql AS
     , NOW() - query_start AS duration
     , application_name AS app
     , pid AS procpid
-    , query AS current_query
+    , replace(query,'\n',' ') AS query
     FROM pg_stat_activity
     WHERE state <> 'idle'
     ORDER BY query_start
