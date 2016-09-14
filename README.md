@@ -93,7 +93,7 @@ bash pgm/pgm.sh make demo
 * create PKGS - создать объекты БД
 * creatif PKGS - создать объекты БД, если их нет
 * recreate PKGS - создать объекты БД, предварительно удалив
-* make PKGS - выполнить компилируемый код (CREATE OR REPLACE)
+* make PKGS - выполнить компилируемый код (CREATE OR REPLACE) после сделанного ранее create
 * drop PKGS - удалить объектв БД (кроме wsd)
 * erase PKGS - очистить бд (включая удаление wsd)
 * createdb - создать БД
