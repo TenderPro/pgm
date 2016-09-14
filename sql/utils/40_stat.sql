@@ -38,7 +38,7 @@ CREATE OR REPLACE VIEW pg_db_size AS
 
 -- https://www.keithf4.com/a-large-database-does-not-mean-large-shared_buffers/
 CREATE OR REPLACE VIEW pg_cached_size AS
-  SELECT 
+  SELECT
     c.relname
     , pg_size_pretty(count(*) * 8192) as buffered
     , round(100.0 * count(*) / ( SELECT setting FROM pg_settings WHERE name='shared_buffers')::integer,1) AS buffers_percent
@@ -57,10 +57,10 @@ CREATE OR REPLACE VIEW pg_sql AS
   SELECT
     datname
     , NOW() - query_start AS duration
-    , application_name
-    , pid procpid
-    , query current_query
+    , application_name AS app
+    , pid AS procpid
+    , query AS current_query
     FROM pg_stat_activity
-    WHERE query <> '<IDLE>'
-    ORDER BY duration DESC
+    WHERE state <> 'idle'
+    ORDER BY query_start
 ;
