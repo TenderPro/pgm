@@ -327,7 +327,10 @@ generate_build_sql() {
     echo "SET LOCAL search_path = $PGM_SCHEMA, public;" >> $BLD/build.sql
     # TODO: 01_require.sql
     # файлы 9?_*.macro.sql просто копируем - они вспомогательные
-    [ -f 9?_*.macro.sql ] && cp 9?_*.macro.sql $BLD/$bd/
+    if ls 9?_*.macro.sql 1> /dev/null 2>&1; then
+      cp 9?_*.macro.sql $BLD/$bd/
+    fi
+
     #  если есть каталог с данными - создаем симлинк
     [ -d data ] && [ ! -L $BLD/$bd/data ] && ln -s $PWD/data $BLD/$bd/data
     for f in 9?_*.sql ; do
