@@ -17,7 +17,7 @@ db_help() {
     init     - create PKG skeleton files
     create   - create PKG objects
     creatif  - create PKG objects if not exists
-    recreate - drop PKG objects if exists and create	
+    recreate - drop PKG objects if exists and create
     make     - compile PKG code
     drop     - drop PKG objects intender to rebuild
     erase    - drop all of PKG objects including persistent data
@@ -80,7 +80,7 @@ sql_template() {
 
 EOF
   case "$1" in
-    drop) 
+    drop)
       echo "DROP SCHEMA :SCH CASCADE;"
     ;;
     create)
@@ -98,11 +98,11 @@ EOF
 # copy of psql output
 sql_template_test() {
   cat <<EOF
-         test          
+         test
 -----------------------
   ***** testname *****
 
- result 
+ result
 --------
  t
 
@@ -243,10 +243,10 @@ generate_build_sql() {
   bd=$pn     # build dir
   if [[ "$sn" ]] ; then
     bd=$bd-$sn
-  else 
+  else
     sn=$pn
-  fi 
-  debug " ********* $pn / $sn / $bd "    
+  fi
+  debug " ********* $pn / $sn / $bd "
   if [[ "$p" != "$p_pre" ]] ; then
     echo -n "$pn: "
     echo "\\qecho '-- ******* Package: $pn --'" >> $BLD/build.sql
@@ -316,7 +316,7 @@ generate_build_sql() {
     if [[ ! "$skip_file" ]]; then
       echo "\\set FILE $n" >> $BLD/build.sql
       echo "\i $bd/$n" >> $BLD/build.sql
-      [[ "$db_csum" ]] && echo "INSERT INTO $PGM_STORE.pkg_script_protected (pkg, schema, code, csum) VALUES ('$pn', '$sn', '$n', '$db_csum');" >> $BLD/build.sql 
+      [[ "$db_csum" ]] && echo "INSERT INTO $PGM_STORE.pkg_script_protected (pkg, schema, code, csum) VALUES ('$pn', '$sn', '$n', '$db_csum');" >> $BLD/build.sql
     else
       echo "\\qecho '----- SKIPPED PROTECTED FILE  -----'" >> $BLD/build.sql
       [[ "$db_csum" != "$csum" ]] && echo "\\qecho '!!!WARNING!!! db csum $db_csum <> file csum $csum'" >> $BLD/build.sql
@@ -374,9 +374,9 @@ db_run() {
   local file_mask_ext=none
   if test "$#" -eq 2; then
     # осталось два аргумента, первый - маска файлов для второго прохода
-    file_mask_ext=$1 ; shift  
+    file_mask_ext=$1 ; shift
   fi
-  
+
   local pkg=$@
   local use_flag
 
@@ -431,7 +431,7 @@ EOF
     # look for
     # A: tag/*.sql (if schema = tag)
     # B: tag/sql/NN_schema/*.sql
-    # C: tag/NN_schema/*.sql 
+    # C: tag/NN_schema/*.sql
     local s=""
     for f in $tag/*.sql; do
       # A: tag/*.sql (if schema = tag)
@@ -455,7 +455,7 @@ EOF
   if [[ "$run_op_arg" == "recreate" && "$run_op" == "drop" ]] ; then
     # pkg dropped, create it
     op_is_del=
-    run_op="create"  
+    run_op="create"
     file_mask=$file_mask_ext
     generate_build_sql
   fi
@@ -548,7 +548,7 @@ db_create() {
   echo -n "Create database '$DB_NAME' ..."
   dbd psql -X -P tuples_only -c "SELECT NULL" > /dev/null 2>> $LOGFILE && { echo "Database already exists" ; exit ; }
   dbl createdb -O $u -E UTF8 -T $DB_TEMPLATE && echo "OK"
-  #  && dbl createlang plperl 
+  #  && dbl createlang plperl
   # TODO: ALTER DATABASE $c SET lc_messages='en_US.utf8';
 }
 
@@ -639,7 +639,7 @@ if [ -z "$DB_NAME" ]; then
     echo "Init complete"
     exit 0
   fi
-  . .config  
+  . .config
 fi
 
 [[ "$DB_USER" ]] || DB_USER=$DB_NAME
@@ -682,7 +682,7 @@ case "$cmd" in
     ;;
   recreate)
     db_run recreate "00_*.sql 02_*.sql" "[1-8]?_*.sql" "$pkg"
-    ;;  
+    ;;
   drop)
     db_run drop "00_*.sql 02_*.sql" "$pkg"
     ;;
