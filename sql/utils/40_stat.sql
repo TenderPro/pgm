@@ -8,7 +8,7 @@ CREATE OR REPLACE VIEW pg_table_size AS
   FROM (
     SELECT *, total_bytes-index_bytes-COALESCE(toast_bytes,0) AS table_bytes FROM (
       SELECT c.oid,nspname AS table_schema, relname AS TABLE_NAME
-              , c.reltuples AS row_estimate
+              , c.reltuples::BIGINT AS row_estimate
               , pg_total_relation_size(c.oid) AS total_bytes
               , pg_indexes_size(c.oid) AS index_bytes
               , pg_total_relation_size(reltoastrelid) AS toast_bytes
