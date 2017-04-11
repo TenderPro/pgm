@@ -97,3 +97,10 @@ END
 
 $_$;
 SELECT pg_c('f', 'pg_comment', 'чтение/запись комментариев полей таблицы');
+
+/* ------------------------------------------------------------------------- */
+CREATE OR REPLACE FUNCTION ws.now0() RETURNS TIMESTAMPTZ(0) STABLE LANGUAGE 'sql' AS
+$_$
+SELECT now()::TIMESTAMPTZ(0);
+$_$;
+SELECT pg_c('f', 'now0', 'текущее время, округленное до секунды', 'См РМ #31126');
