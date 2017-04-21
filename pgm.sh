@@ -370,6 +370,33 @@ is_pkg_exists() {
 }
 
 # ------------------------------------------------------------------------------
+lookup_dirs() {
+  local mask=$1
+  local tag=$2
+  # look for
+  # A: tag/*.sql (if schema = tag)
+  # B: tag/sql/NN_schema/*.sql
+  # C: tag/NN_schema/*.sql
+  local s=""
+  for f in $tag/*.sql; do
+    # A: tag/*.sql (if schema = tag)
+    [ -e "$f" ] && s=$tag
+    break
+  done
+
+  if [[ "$s" ]]; then
+    echo "Found: $s"
+    echo "$tag" >> $dirs
+  else
+    [ -d sql ] && tag=$tag/sql # B: tag/sql/NN_schema/*.sql
+    for s in $tag/$schema_mask ; do
+      echo "Found: $s"
+      echo "$tag ${s#*/}" >> $dirs
+    done
+  fi
+}
+
+# ------------------------------------------------------------------------------
 db_run() {
 
   local run_op_arg=$1 ; shift
@@ -401,9 +428,14 @@ EOF
   pushd $path > /dev/null
   echo "Seeking dirs in $pkg..."
   local dirs=$BLD/build.dirs
+  local mask_create=""
+  local skip_step1="" # no skip 1st by default
+  [[ "$run_op_arg" == "recreate" ]] && skip_step1="1" # skip 1st by default
+
   echo -n > $dirs
   for tag in $pkg ; do
-    [ -d "$tag" ] || continue
+    [ -d "$tag" ] || continue # TODO: Warning for unknown tag
+
     if [[ "$run_op_arg" == "creatif" ]] ; then
       echo -n "Check if package $tag exists: "
       # do nothing if pkg exists, create otherwise
@@ -412,6 +444,7 @@ EOF
         echo "Yes, skip"
         continue
       else
+        # Will create atleast one
         echo "No"
         run_op="create"
       fi
@@ -421,45 +454,35 @@ EOF
       echo -n "Check if package $tag exists: "
       local exists=$(is_pkg_exists $tag)
       if [[ $exists == "t" ]] ; then
+        # Will drop atleast one
         echo "Yes, will drop"
         run_op="drop"
         op_is_del=1
+        skip_step1="" # no skip 1st
       else
         echo "No, just create"
-        run_op="create"
-        file_mask=$file_mask_ext
+        continue
       fi
     fi
-
-    # look for
-    # A: tag/*.sql (if schema = tag)
-    # B: tag/sql/NN_schema/*.sql
-    # C: tag/NN_schema/*.sql
-    local s=""
-    for f in $tag/*.sql; do
-      # A: tag/*.sql (if schema = tag)
-      [ -e "$f" ] && s=$tag
-      break
-    done
-
-    if [[ "$s" ]]; then
-      echo "Found: $s"
-      echo "$tag" >> $dirs
-    else
-      [ -d sql ] && tag=$tag/sql # B: tag/sql/NN_schema/*.sql
-      for s in $tag/$schema_mask ; do
-        echo "Found: $s"
-        echo "$tag ${s#*/}" >> $dirs
-      done
-    fi
+    lookup_dirs $schema_mask $tag
   done
 
-  generate_build_sql
-  if [[ "$run_op_arg" == "recreate" && "$run_op" == "drop" ]] ; then
+  [[ "$skip_step1" ]] || generate_build_sql
+
+  if [[ "$run_op_arg" == "recreate" ]] ; then
     # pkg dropped, create it
-    op_is_del=
+    op_is_del=""
     run_op="create"
     file_mask=$file_mask_ext
+
+    echo "Recreate: 1st step dirs:" && cat $dirs
+    echo -n > $dirs
+    for tag in $pkg ; do
+      [ -d "$tag" ] || continue
+
+      lookup_dirs $schema_mask $tag
+    done
+
     generate_build_sql
   fi
 
