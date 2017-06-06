@@ -168,7 +168,7 @@ $_$
       RAISE WARNING 'ERROR: Представление не найдено %', a_code;
       RETURN;
     END IF;
-    IF  v_def ~* 'with' THEN
+    IF  v_def ~* '(^|\s)with(\s)' THEN
       RAISE WARNING 'ERROR: Запрос в представлении % содержит with', a_code;
       RETURN;
     END IF;
