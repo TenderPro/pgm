@@ -168,6 +168,10 @@ $_$
       RAISE WARNING 'ERROR: Представление не найдено %', a_code;
       RETURN;
     END IF;
+    IF  v_def ~* '(^|\s)with(\s)' THEN
+      RAISE WARNING 'ERROR: Запрос в представлении % содержит with', a_code;
+      RETURN;
+    END IF;
     v_def_arr := string_to_array(v_def, ' union ');
     FOR v_j in array_lower(v_def_arr, 1)..array_upper(v_def_arr, 1) LOOP
       DECLARE
