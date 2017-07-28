@@ -31,7 +31,7 @@ $_$
     IF a_code IS NULL THEN
       RAISE WARNING '::';
     ELSE
-      RAISE WARNING '::%', rpad('t/'||a_code||' ', 30, '.');
+      RAISE WARNING '::%', 't/'||a_code;
     END IF;
     RETURN ' ***** ' || a_code || ' *****';
   END;

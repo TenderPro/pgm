@@ -219,7 +219,6 @@ log() {
   do
     d=${data#* WARNING:  ::}
     if [[ "$data" != "$d" ]] ; then
-     [[ "$TEST_CNT" == "0" ]] || echo " done"
      filenew=${data%.sql*}
      filenew=${filenew#*psql:}
      if [[ "$fileold" != "$filenew" ]] ; then
@@ -230,7 +229,7 @@ log() {
       fileold=$filenew
       tput setaf 9             #set default color
      fi
-     [[ "$d" ]] && echo -n "#$d"  
+     [[ "$d" ]] && echo "#$d"  
     else
       tput setaf 1         #set red color
       [[ "$ret" != "0" ]] || echo -e "\nnot ok $out"
