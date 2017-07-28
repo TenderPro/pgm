@@ -211,21 +211,34 @@ TEST_TTL="0"
 
 log() {
   local test_total=$1
+  local filenew
+  local fileold
   ret="0"
+  echo "1..$test_total"
   while read data
   do
     d=${data#* WARNING:  ::}
     if [[ "$data" != "$d" ]] ; then
-     [[ "$TEST_CNT" == "0" ]] || echo "Ok"
-     TEST_CNT=$(($TEST_CNT+1))
-     [[ "$d" ]] && echo -n "($TEST_CNT/$TEST_TTL) $d "
+     filenew=${data%.sql*}
+     filenew=${filenew#*psql:}
+     if [[ "$fileold" != "$filenew" ]] ; then
+      tput setaf 2         #set green color
+      [[ "$TEST_CNT" == "0" ]] || echo "ok $out"
+      TEST_CNT=$(($TEST_CNT+1))
+      [[ "$filenew" ]] && out="$TEST_CNT - ${filenew%.macro}.sql"
+      fileold=$filenew
+      tput setaf 9             #set default color
+     fi
+     [[ "$d" ]] && echo "#$d"  
     else
-      [[ "$TEST_CNT" == "0" ]] || echo "FAIL"
+      tput setaf 1         #set red color
+      [[ "$ret" != "0" ]] || echo "not ok $out"
       echo "$data" >> ${LOGFILE}.err
       echo "$data"
       ret="1"
     fi
-  done
+  done 
+  tput setaf 9             #set default color
   return $ret
 }
 
@@ -333,6 +346,7 @@ generate_build_sql() {
 
     #  если есть каталог с данными - создаем симлинк
     [ -d data ] && [ ! -L $BLD/$bd/data ] && ln -s $PWD/data $BLD/$bd/data
+    c="1"
     for f in 9?_*.sql ; do
       [ -s "$f" ] || continue
       [[ "${f%.macro.sql}" == "$f" ]] || continue  # skip .macro.sql
@@ -340,7 +354,6 @@ generate_build_sql() {
       n=$(basename $f)
       debug "Found test: $f"
       echo "Processing file: $f" >> $LOGFILE
-      c=$(grep -ciE "^\s*select\s+$PGM_SCHEMA.test\(" $f)
       [[ "$c" ]] && echo -n "+$c" >> $BLD/test.cnt
       cp -p $f $BLD/$bd/$n # no replaces in test file
       n1=${n%.sql} # remove ext
