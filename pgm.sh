@@ -232,7 +232,7 @@ log() {
      [[ "$d" ]] && echo "#$d"  
     else
       tput setaf 1         #set red color
-      [[ "$ret" != "0" ]] || echo -e "\nnot ok $out"
+      [[ "$ret" != "0" ]] || echo "not ok $out"
       echo "$data" >> ${LOGFILE}.err
       echo "$data"
       ret="1"
