@@ -157,7 +157,7 @@ $_$
       or (array_length(v_code, 1) = 1 and viewname = v_code[1]))
     LOOP
       IF v_def is not null THEN
-        RAISE WARNING 'ERROR: Имя представления неоднозначно %', a_code;
+        RAISE WARNING 'Имя представления неоднозначно %', a_code;
         RETURN;
       END IF;
       v_def := r_._def;
@@ -165,11 +165,11 @@ $_$
     END LOOP;
     v_def := REGEXP_REPLACE(REGEXP_REPLACE(TRANSLATE(TRIM(v_def), E'\n', ' '), E'\\s+', ' ', 'g'), E' +([()]) +', E'\\1', 'g');
     IF v_def is null THEN
-      RAISE WARNING 'ERROR: Представление не найдено %', a_code;
+      RAISE WARNING 'Представление не найдено %', a_code;
       RETURN;
     END IF;
     IF  v_def ~* '(^|\s)with(\s)' THEN
-      RAISE WARNING 'ERROR: Запрос в представлении % содержит with', a_code;
+      RAISE NOTICE 'Запрос в представлении % содержит with', a_code;
       RETURN;
     END IF;
     v_def_arr := string_to_array(v_def, ' union ');
