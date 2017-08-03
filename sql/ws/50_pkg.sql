@@ -26,14 +26,14 @@ CREATE OR REPLACE FUNCTION test(a_code TEXT) RETURNS TEXT VOLATILE LANGUAGE 'plp
 $_$
   -- a_code:  сообщение для теста
   BEGIN
-    --t/test1_global_config.t .. ok
-    --t/test2_run_config.t ..... ok
+    -- RAISE WARNING parsed for test output
     IF a_code IS NULL THEN
       RAISE WARNING '::';
     ELSE
       RAISE WARNING '::%', 't/'||a_code;
     END IF;
-    RETURN ' ***** ' || a_code || ' *****';
+    -- RETURN saved to .md
+    RETURN a_code;
   END;
 $_$;
 SELECT pg_c('f', 'test', 'метка теста');

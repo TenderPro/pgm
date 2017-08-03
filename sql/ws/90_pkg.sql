@@ -7,7 +7,9 @@
 */
 
 /* ------------------------------------------------------------------------- */
--- test1
-SELECT ws.test('pg_store_proc');
+SELECT ws.test('pg_store_proc'); -- BOT
+/*
+  Описание ф-и pg_store_proc_descr
+*/
 SELECT * FROM ws.pg_store_proc_descr('ws') WHERE name = 'pg_store_proc_descr' ORDER BY name ASC; -- EOT
 /* ------------------------------------------------------------------------- */

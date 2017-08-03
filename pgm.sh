@@ -118,7 +118,7 @@ db_init_pkg() {
     [ -f $dir/$p/02_drop.sql ] || sql_template drop > $dir/$p/02_drop.sql
     [ -f $dir/$p/11_create.sql ] || sql_template create > $dir/$p/11_create.sql
     [ -f $dir/$p/90_test.sql ] || sql_template test > $dir/$p/90_test.sql
-    [ -f $dir/$p/90_test.out ] || sql_template_test > $dir/$p/90_test.out
+    [ -f $dir/$p/90_test.md ] || sql_template_test > $dir/$p/90_test.md
   done
 }
 
@@ -170,10 +170,14 @@ db_run_test() {
   local name=$3
   local point=$4
   local file=$5
+  local out=$bd/$name.md
   cat >> $file <<EOF
 SAVEPOINT ${point}_test;
 \set TEST $bd/$name
-\o $bd/$name.out
+\set OUTW '| echo ''\`\`\`sql'' >> $out ; cat >> $out ; echo '';\n\`\`\`'' >> $out'
+\set OUTG '| $AWK_BIN ''{ gsub(/--\\\+--/, "--|--"); print }'' >> $out'
+\set OUTT '| echo -n ''##'' >> $out ; cat >> $out'
+\! echo "# $bd:$name\n" > $out
 \o
 \i $bd/$n
 ROLLBACK TO SAVEPOINT ${point}_test;
@@ -356,16 +360,17 @@ generate_build_sql() {
       [[ "$c" ]] && echo -n "+$c" >> $BLD/test.cnt
       cp -p $f $BLD/$bd/$n # no replaces in test file
       n1=${n%.sql} # remove ext
-      # TODO: translate comments into .out
-      # $AWK_BIN -i inplace '{ gsub(/^-- *(.+)$/, "\\! echo \"&\" >> '$bd/$n1'.out"); print }' $BLD/$bd/$n
+      # заменим "; -- BOT" на "\g :OUTT"
+      $AWK_BIN -i inplace "{ gsub(/; *-- *BOT/, \"\n\\\pset t on\n\\\g :OUTT\n\\\pset t off\"); print }" $BLD/$bd/$n
       search="; *-- *EOT"
-      psqlcommand="\n\\\w | cat >> $bd/$n1.out ; echo ';' >> $bd/$n1.out  \n\\\g | echo '/*' >> $bd/$n1.out ; cat >> $bd/$n1.out ; echo '*/\\\n' >> $bd/$n1.out"
+      psqlcommand="\n\\\w :OUTW\n\\\g :OUTG"
       # заменим "; -- EOT" на "\w \g"
       $AWK_BIN -i inplace "{ gsub(/$search/, \"$psqlcommand\"); print }" $BLD/$bd/$n
       [[ -s "$n1.macro.sql" ]] && $AWK_BIN -i inplace "{ gsub(/$search/,\"$psqlcommand\"); print}" $BLD/$bd/$n1.macro.sql
+
       db_run_test $bd $n $n1 $sn $BLD/build.sql
-      cp $n1.out $BLD/$bd/$n1.out.orig 2>>  $BLD/errors.diff
-      echo "\! diff -c $bd/$n1.out.orig $bd/$n1.out | tr \"\t\" \" \" >> errors.diff" >> $BLD/build.sql
+      cp $n1.md $BLD/$bd/$n1.md.orig 2>>  $BLD/errors.diff
+      echo "\! diff -c $bd/$n1.md.orig $bd/$n1.md | tr \"\t\" \" \" >> errors.diff" >> $BLD/build.sql
       db_run_test_end $BLD/build.sql
     done
   fi
