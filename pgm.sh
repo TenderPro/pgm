@@ -174,8 +174,8 @@ db_run_test() {
 SAVEPOINT ${point}_test;
 \set TEST $bd/$name
 \o $bd/$name.out
-\i $bd/$n
 \o
+\i $bd/$n
 ROLLBACK TO SAVEPOINT ${point}_test;
 EOF
 }
@@ -357,6 +357,10 @@ generate_build_sql() {
       [[ "$c" ]] && echo -n "+$c" >> $BLD/test.cnt
       cp -p $f $BLD/$bd/$n # no replaces in test file
       n1=${n%.sql} # remove ext
+      search="\;[[:space:]]\+--EOT"
+      psqlcommand="\\\w \\| cat >> $bd/$n1/.out ; echo ';' >> $bd/$n1.out  \n \\\g \\| echo '/*' >> $bd/$n1.out ; cat >> $bd/$n1.out ;  echo '*/' >> $bd/$n1.out"
+      sed -i "s|${search}|${psqlcommand}|g" $BLD/$bd/$n
+      [[ -s "$n1.macro.sql" ]] && sed -i "s|${search}|${psqlcommand}|g" $BLD/$bd/$n1.macro.sql
       db_run_test $bd $n $n1 $sn $BLD/build.sql
       cp $n1.out $BLD/$bd/$n1.out.orig 2>>  $BLD/errors.diff
       echo "\! diff -c $bd/$n1.out.orig $bd/$n1.out | tr \"\t\" \" \" >> errors.diff" >> $BLD/build.sql
