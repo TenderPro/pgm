@@ -184,7 +184,6 @@ EOF
 db_run_test_end() {
   local file=$1
   cat >> $file <<EOF
-\o
 delete from $PGM_SCHEMA.compile_errors;
 \copy $PGM_SCHEMA.compile_errors(data) from errors.diff
 \! cat errors.diff
@@ -357,10 +356,13 @@ generate_build_sql() {
       [[ "$c" ]] && echo -n "+$c" >> $BLD/test.cnt
       cp -p $f $BLD/$bd/$n # no replaces in test file
       n1=${n%.sql} # remove ext
-      search="\;[[:space:]]\+--EOT"
-      psqlcommand="\\\w \\| cat >> $bd/$n1/.out ; echo ';' >> $bd/$n1.out  \n \\\g \\| echo '/*' >> $bd/$n1.out ; cat >> $bd/$n1.out ;  echo '*/' >> $bd/$n1.out"
-      sed -i "s|${search}|${psqlcommand}|g" $BLD/$bd/$n
-      [[ -s "$n1.macro.sql" ]] && sed -i "s|${search}|${psqlcommand}|g" $BLD/$bd/$n1.macro.sql
+      # TODO: translate comments into .out
+      # $AWK_BIN -i inplace '{ gsub(/^-- *(.+)$/, "\\! echo \"&\" >> '$bd/$n1'.out"); print }' $BLD/$bd/$n
+      search="; *-- *EOT"
+      psqlcommand="\n\\\w | cat >> $bd/$n1.out ; echo ';' >> $bd/$n1.out  \n\\\g | echo '/*' >> $bd/$n1.out ; cat >> $bd/$n1.out ; echo '*/\\\n' >> $bd/$n1.out"
+      # заменим "; -- EOT" на "\w \g"
+      $AWK_BIN -i inplace "{ gsub(/$search/, \"$psqlcommand\"); print }" $BLD/$bd/$n
+      [[ -s "$n1.macro.sql" ]] && $AWK_BIN -i inplace "{ gsub(/$search/,\"$psqlcommand\"); print}" $BLD/$bd/$n1.macro.sql
       db_run_test $bd $n $n1 $sn $BLD/build.sql
       cp $n1.out $BLD/$bd/$n1.out.orig 2>>  $BLD/errors.diff
       echo "\! diff -c $bd/$n1.out.orig $bd/$n1.out | tr \"\t\" \" \" >> errors.diff" >> $BLD/build.sql

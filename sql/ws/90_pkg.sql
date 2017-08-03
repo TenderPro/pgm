@@ -7,5 +7,7 @@
 */
 
 /* ------------------------------------------------------------------------- */
-SELECT * FROM ws.pg_store_proc_descr('ws') WHERE name = 'pg_store_proc_descr' ORDER BY name ASC;
+-- test1
+SELECT ws.test('pg_store_proc');
+SELECT * FROM ws.pg_store_proc_descr('ws') WHERE name = 'pg_store_proc_descr' ORDER BY name ASC; -- EOT
 /* ------------------------------------------------------------------------- */
