@@ -225,23 +225,23 @@ log() {
      filenew=${data%.sql*}
      filenew=${filenew#*psql:}
      if [[ "$fileold" != "$filenew" ]] ; then
-      tput setaf 2         #set green color
+      [ -t 1 ] && tput setaf 2         #set green color
       [[ "$TEST_CNT" == "0" ]] || echo "ok $out"
       TEST_CNT=$(($TEST_CNT+1))
       [[ "$filenew" ]] && out="$TEST_CNT - ${filenew%.macro}.sql"
       fileold=$filenew
-      tput setaf 9             #set default color
+      [ -t 1 ] && tput setaf 9             #set default color
      fi
      [[ "$d" ]] && echo "#$d"  
     else
-      tput setaf 1         #set red color
+      [ -t 1 ] && tput setaf 1         #set red color
       [[ "$ret" != "0" ]] || echo "not ok $out"
       echo "$data" >> ${LOGFILE}.err
       echo "$data"
       ret="1"
     fi
-  done 
-  tput setaf 9             #set default color
+  done
+  [ -t 1 ] && tput setaf 9             #set default color
   return $ret
 }
 
