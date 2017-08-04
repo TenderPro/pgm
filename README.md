@@ -10,13 +10,13 @@ pgm - это shell-скрипт для создания, обновления и
 
 ## Быстрый старт
 
-Выполняется после установки [pg-skel](http://git.it.tender.pro/iac/pg-skel).
+Выполняется после установки [pg-skel](https://github.com/TenderPro/pg-skel).
 
 Текущий каталог - место для нового sql-проекта.
 
 Создаем в нем подкаталог (или подмодуль или симлинк) pgm:
 ```
-git clone git@git.it.tender.pro:iac/pgm.git
+git clone https://github.com/TenderPro/pgm.git
 ```
 
 Проверяем наличие используемых программ
