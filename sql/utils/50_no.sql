@@ -44,3 +44,14 @@ $_$
     RETURN v_ret;
   END;
 $_$;
+
+/* ------------------------------------------------------------------------- */
+CREATE OR REPLACE FUNCTION no_trigger(a_schema TEXT, a_table TEXT, a_name TEXT) 
+RETURNS BOOL LANGUAGE 'sql' AS
+$_$
+  SELECT NOT EXISTS(SELECT 1 FROM information_schema.triggers
+    WHERE trigger_schema = a_schema AND event_object_table = a_table
+      AND trigger_name = a_name
+  )
+$_$;
+/* ------------------------------------------------------------------------- */
