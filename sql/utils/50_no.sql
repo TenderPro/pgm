@@ -25,8 +25,15 @@ $_$;
 /* ------------------------------------------------------------------------- */
 CREATE OR REPLACE FUNCTION no_table(name) RETURNS BOOL LANGUAGE 'sql' AS
 $_$
-  SELECT NOT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = any(current_schemas(false)) AND table_name = $1)
+  SELECT NOT EXISTS(SELECT 1 FROM information_schema.tables
+    WHERE
+       -- схема не задана - ищем среди доступных
+       (split_part($1, '.', 2) = ''  AND table_schema = any(current_schemas(false)) AND table_name = $1 )
+       -- схема задана, имя таблицы - после точки
+    OR (split_part($1, '.', 2) <> '' AND table_schema = split_part($1, '.', 1) AND table_name = split_part($1, '.', 2)  )
+  )
 $_$;
+SELECT pg_c('f', 'no_table', 'Проверка отсутствия таблицы');
 
 /* ------------------------------------------------------------------------- */
 CREATE OR REPLACE FUNCTION no_sequence(name) RETURNS BOOL LANGUAGE 'sql' AS
