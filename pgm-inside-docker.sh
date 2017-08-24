@@ -24,4 +24,12 @@ if [[ "$arg" != "${arg%/sql}" ]]; then
   shift
 fi
 
+# Run script and ROLLBACK at the end
+#NO_COMMIT=1 SQLROOT=$dir gosu $user bash $PGM $@
+
+# Send "notify xxx" after COMMIT
+# NOTIFY=xxx SQLROOT=$dir gosu $user bash $PGM $@
+
+# Send "notify dbrpc_reset" after COMMIT
+# This signal will instruct [dbrpc](https://github.com/LeKovr/dbrpc) to reset its cache
 SQLROOT=$dir gosu $user bash $PGM $@

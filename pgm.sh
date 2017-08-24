@@ -4,6 +4,10 @@
 # pgm.sh - Postgresql schema control script
 #
 # ------------------------------------------------------------------------------
+# See project home for details: https://github.com/TenderPro/pgm
+#
+
+VERSION="1.1"
 
 db_help() {
   cat <<EOF
@@ -155,8 +159,16 @@ EOF
 # ------------------------------------------------------------------------------
 db_run_sql_end() {
   local file=$1
+  if [[ "$NO_COMMIT" ]] ; then
+    echo 'ROLLBACK;' >> $file
+  else
+    echo 'COMMIT;' >> $file
+    if [[ "$NOTIFY" != "--" ]] ; then
+      local signal=${NOTIFY:-dbrpc_reset}
+      echo "NOTIFY $signal;" >> $file
+    fi
+  fi
   cat >> $file <<EOF
-COMMIT;
 
 \qecho '-- _build.psql / END --'
 /* ------------------------------------------------------------------------- */
