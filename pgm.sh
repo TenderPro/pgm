@@ -485,14 +485,18 @@ EOF
     fi
     pushd $pkg_dir > /dev/null
 
-    [ -d "$pkg_name" ] || continue # TODO: Warning for unknown pkg name
-
+    if [ ! -d "$pkg_name" ] ; then
+      echo -n "** WARNING: $pkg_dir/$pkg_name does not exists"
+      popd > /dev/null
+      continue
+    fi
     if [[ "$run_op_arg" == "creatif" ]] ; then
       echo -n "Check if package $pkg_name exists: "
       # do nothing if pkg exists, create otherwise
       local exists=$(is_pkg_exists $pkg_name)
       if [[ $exists == "t" ]] ; then
         echo "Yes, skip"
+        popd > /dev/null
         continue
       else
         # Will create atleast one
@@ -512,6 +516,7 @@ EOF
         skip_step1="" # no skip 1st
       else
         echo "No, just create"
+        popd > /dev/null
         continue
       fi
     fi
@@ -540,8 +545,8 @@ EOF
         pkg_dir=$pkg_dir/$SQLROOT
       fi
 
+      [ -d "$pkg_dir/pkg_name" ] || continue
       pushd $pkg_dir > /dev/null
-      [ -d "$pkg_name" ] || continue
       lookup_dirs $pkg_dir $schema_mask $pkg_name
       popd > /dev/null
     done
