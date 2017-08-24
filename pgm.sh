@@ -252,7 +252,7 @@ generate_build_sql() {
   [[ "$op_is_del" ]] && cat_cmd=$TAC_BIN # Проходим каталоги в обратном порядке
   local p_pre=""
   echo -n "0" > $BLD/test.cnt
-  $cat_cmd $dirs | while read p s ; do
+  $cat_cmd $dirs | while read path p s ; do
 
   pn=${p%%/sql} # package name without suffix
   sn=${s#??_}   # schema name
@@ -277,7 +277,7 @@ generate_build_sql() {
 
   [ -d "$BLD/$bd" ] || mkdir $BLD/$bd
   echo -n > $BLD/errors.diff
-  pushd $p > /dev/null
+  pushd $path/$p > /dev/null
   [[ "$s" ]] && pushd $s > /dev/null
   local search_set=""
   debug "Search $file_mask in $PWD"
@@ -395,8 +395,9 @@ is_pkg_exists() {
 
 # ------------------------------------------------------------------------------
 lookup_dirs() {
-  local mask=$1
-  local tag=$2
+  local path=$1
+  local mask=$2
+  local tag=$3
   # look for
   # A: tag/*.sql (if schema = tag)
   # B: tag/sql/NN_schema/*.sql
@@ -409,13 +410,13 @@ lookup_dirs() {
   done
 
   if [[ "$s" ]]; then
-    echo "Found: $s"
-    echo "$tag" >> $dirs
+    echo "Found: $path/$s"
+    echo "$path $tag" >> $dirs
   else
     [ -d sql ] && tag=$tag/sql # B: tag/sql/NN_schema/*.sql
     for s in $tag/$schema_mask ; do
-      echo "Found: $s"
-      echo "$tag ${s#*/}" >> $dirs
+      echo "Found: $path/$s"
+      echo "$path $tag ${s#*/}" >> $dirs
     done
   fi
 }
@@ -447,9 +448,8 @@ EOF
 
   op_is_del=""
   [[ "$run_op" == "drop" || "$run_op" == "erase" ]] && op_is_del=1
-  local path=$ROOT/$SQLROOT
 
-  pushd $path > /dev/null
+  pushd $ROOT > /dev/null
   echo "Seeking dirs in $pkg..."
   local dirs=$BLD/build.dirs
   local mask_create=""
@@ -458,12 +458,27 @@ EOF
 
   echo -n > $dirs
   for tag in $pkg ; do
-    [ -d "$tag" ] || continue # TODO: Warning for unknown tag
+    # pkg tag - dir relation:
+    # x     -> sql/x
+    # x/y   -> x/sql/y
+    # x/y/z -> x/y/sql/z
+    local pkg_dir=${tag%/*}
+    local pkg_name=${tag##*/}
+    if [[ $pkg_dir == $tag ]] ; then
+      # ROOT/sql/
+      pkg_dir=$SQLROOT
+    else
+      # ROOT/DIR/sql
+      pkg_dir=$pkg_dir/$SQLROOT
+    fi
+    pushd $pkg_dir > /dev/null
+
+    [ -d "$pkg_name" ] || continue # TODO: Warning for unknown pkg name
 
     if [[ "$run_op_arg" == "creatif" ]] ; then
-      echo -n "Check if package $tag exists: "
+      echo -n "Check if package $pkg_name exists: "
       # do nothing if pkg exists, create otherwise
-      local exists=$(is_pkg_exists $tag)
+      local exists=$(is_pkg_exists $pkg_name)
       if [[ $exists == "t" ]] ; then
         echo "Yes, skip"
         continue
@@ -475,8 +490,8 @@ EOF
     fi
 
     if [[ "$run_op_arg" == "recreate" ]] ; then
-      echo -n "Check if package $tag exists: "
-      local exists=$(is_pkg_exists $tag)
+      echo -n "Check if package $pkg_name exists: "
+      local exists=$(is_pkg_exists $pkg_name)
       if [[ $exists == "t" ]] ; then
         # Will drop atleast one
         echo "Yes, will drop"
@@ -488,7 +503,8 @@ EOF
         continue
       fi
     fi
-    lookup_dirs $schema_mask $tag
+    lookup_dirs $pkg_dir $schema_mask $pkg_name
+    popd > /dev/null
   done
 
   [[ "$skip_step1" ]] || generate_build_sql
@@ -502,9 +518,20 @@ EOF
     echo "Recreate: 1st step dirs:" && cat $dirs
     echo -n > $dirs
     for tag in $pkg ; do
-      [ -d "$tag" ] || continue
+      local pkg_dir=${tag%/*}
+      local pkg_name=${tag##*/}
+      if [[ $pkg_dir == $tag ]] ; then
+        # ROOT/sql/
+        pkg_dir=$SQLROOT
+      else
+        # ROOT/DIR/sql
+        pkg_dir=$pkg_dir/$SQLROOT
+      fi
 
-      lookup_dirs $schema_mask $tag
+      pushd $pkg_dir > /dev/null
+      [ -d "$pkg_name" ] || continue
+      lookup_dirs $pkg_dir $schema_mask $pkg_name
+      popd > /dev/null
     done
 
     generate_build_sql
