@@ -572,7 +572,7 @@ EOF
   popd > /dev/null
   if [[ $RETVAL -eq 0 ]] ; then
     [ -f "$BLD/errors.diff" ] && rm "$BLD/errors.diff"
-    echo "Complete"
+    echo "Completed at "`date`
   elif [ -s "$BLD/errors.diff" ] ; then
     echo "*** Diff:" ; cat "$BLD/errors.diff"
     exit 1
@@ -756,12 +756,13 @@ setup
 PGM_PKG="ws"
 PGM_SCHEMA="ws"
 PGM_STORE="wsd"
-
+date=$(date)
 [[ "$cmd" == "anno" ]] || cat <<EOF
   ---------------------------------------------------------
   PgM. Postgresql Database Manager
   Connect: "dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
   Command: $cmd
+  Started: $date
   ---------------------------------------------------------
 EOF
 
