@@ -545,7 +545,7 @@ EOF
         pkg_dir=$pkg_dir/$SQLROOT
       fi
 
-      [ -d "$pkg_dir/pkg_name" ] || continue
+      [ -d "$pkg_dir/$pkg_name" ] || continue
       pushd $pkg_dir > /dev/null
       lookup_dirs $pkg_dir $schema_mask $pkg_name
       popd > /dev/null
