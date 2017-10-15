@@ -17,7 +17,7 @@ db_help() {
 
   Where COMMAND is one from
     check    - check for required programs presense
-    init     - create .config file (if PKG not set)
+    init     - create config file (if PKG not set)
     init     - create PKG skeleton files
     create   - create PKG objects
     creatif  - create PKG objects if not exists
@@ -59,9 +59,6 @@ PG_HOST=localhost
 
 # Template database
 DB_TEMPLATE=tpro-template
-
-# Project root
-ROOT=\$PWD
 
 # Directory of Postgresql binaries (psql, pg_dump, pg_restore, createdb, createlang)
 # Empty if they are in search path
@@ -633,10 +630,8 @@ db_restore() {
 # ------------------------------------------------------------------------------
 db_create() {
 
-  local bin="createdb"
-  local has_bin=$(whereis -b $bin)
-  if [[ "$has_bin" == "$bin:" ]] ; then
-    echo "$bin must be in search path to use this feature"
+  if [[ ! `command -v createdb > /dev/null 2>&1` ]] ; then
+    echo "createdb must be in search path to use this feature"
     exit
   fi
   echo -n "Create database '$DB_NAME' ..."
@@ -685,9 +680,11 @@ setup() {
   AWK_BIN=gawk
   CSUM_BIN=sha1sum
 
-  TAC_BIN="tac"
-  local is_tac=$(whereis -b $TAC_BIN)
-  [[ "$is_tac" == "$cat_cmd:" ]] && cat_cmd="tail -r" # TODO check if tail exists
+  if command -v tac > /dev/null 2>&1 ; then
+    TAC_BIN="tac"
+  else
+    TAC_BIN="tail -r" # TODO check if tail exists
+  fi
 
 }
 # ------------------------------------------------------------------------------
@@ -718,29 +715,30 @@ pkg=$@
 
 [[ "$cmd" == "check" ]] && do_check
 
-ROOT=$PWD
+PGM_CONFIG=${PGM_CONFIG:-.config}
+
+ROOT=${ROOT:-$PWD}
 [[ "$PWD" == "/" ]] && ROOT="/var/log/supervisor"
 
 if [ -z "$DB_NAME" ]; then
   cd $ROOT
-  echo 'DB_NAME not configured, loading .config'
+  echo "DB_NAME does not set, loading config from $PGM_CONFIG"
   if [[ "$cmd" == "init" ]] ; then
     if [[ "$pkg" ]] ; then
       db_init_pkg $pkg
     else
-      db_init .config
+      db_init $PGM_CONFIG
     fi
     echo "Init complete"
     exit 0
   fi
-  . .config
+  . $PGM_CONFIG
 fi
 
 [[ "$DB_USER" ]] || DB_USER=$DB_NAME
 [[ "$DB_TEMPLATE" ]] || DB_TEMPLATE=template0
 
-[[ "$ROOT" ]] || ROOT=$PWD
-DO_SQL=1
+DO_SQL=${DO_SQL:-1}
 BLD=$ROOT/var/build
 
 STAMP=$(date +%y%m%d-%H%m)-$$
@@ -749,18 +747,19 @@ LOGFILE=$LOGDIR/$cmd-$STAMP.log
 [ -d $LOGDIR ] || mkdir -p $LOGDIR
 
 # Where sql packages are
-[[ "$SQLROOT" ]] || SQLROOT=sql
+SQLROOT=${SQLROOT:-sql}
 
 setup
 
-PGM_PKG="ws"
-PGM_SCHEMA="ws"
-PGM_STORE="wsd"
+PGM_PKG=${PGM_PKG:-ws}
+PGM_SCHEMA=${PGM_SCHEMA:-ws}
+PGM_STORE=${PGM_STORE:-wsd}
+
 date=$(date)
 [[ "$cmd" == "anno" ]] || cat <<EOF
   ---------------------------------------------------------
   PgM. Postgresql Database Manager
-  Connect: "dbname=$DB_NAME;user=$DB_NAME;host=$PG_HOST;password="
+  Connect: "dbname=$DB_NAME;user=$DB_USER;host=$PG_HOST;password="
   Command: $cmd
   Started: $date
   ---------------------------------------------------------
