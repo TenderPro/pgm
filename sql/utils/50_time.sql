@@ -4,10 +4,7 @@ $_$
   -- a_epoch: количество секунд
 SELECT CASE
   WHEN $1 = 0 THEN NULL
-  ELSE timezone(
-    (SELECT setting FROM pg_settings WHERE name = 'TimeZone')
-    , (TIMESTAMPTZ 'epoch' + $1 * INTERVAL '1 second')::timestamptz
-    )
+  ELSE (TIMESTAMP 'epoch' + $1 * INTERVAL '1 second')::timestamp
 END;
 $_$;
 SELECT pg_c('f', 'epoch2timestamp', 'преобразование секунд к типу TIMESTAMP');
