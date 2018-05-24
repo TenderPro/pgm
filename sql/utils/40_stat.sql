@@ -1,7 +1,11 @@
 
 -- https://wiki.postgresql.org/wiki/Disk_Usage
 CREATE OR REPLACE VIEW pg_table_size AS
-  SELECT *, pg_size_pretty(total_bytes) AS total
+  SELECT oid
+    , table_schema
+    , table_name
+    , a.row_estimate
+    , pg_size_pretty(total_bytes) AS total
     , pg_size_pretty(index_bytes) AS INDEX
     , pg_size_pretty(toast_bytes) AS toast
     , pg_size_pretty(table_bytes) AS TABLE
@@ -15,7 +19,7 @@ CREATE OR REPLACE VIEW pg_table_size AS
           FROM pg_class c
           LEFT JOIN pg_namespace n ON n.oid = c.relnamespace
           WHERE relkind = 'r'
-    ) a
+    ) tmp
   ) a
   ORDER BY total_bytes DESC
   LIMIT 20
